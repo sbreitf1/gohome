@@ -6,11 +6,47 @@ import (
 	"time"
 )
 
+var (
+	colorLightGray      = "\033[0;37m"
+	colorDarkGray       = "\033[1;30m"
+	colorRed            = "\033[0;31m"
+	colorGreen          = "\033[0;32m"
+	colorDarkRed        = "\033[2;31m"
+	colorDarkGreen      = "\033[2;32m"
+	colorBlue           = "\033[1;34m"
+	colorWhite          = "\033[1;37m"
+	colorEnd            = "\033[0m"
+	colorComeEntry      = colorDarkGreen
+	colorLeaveEntry     = colorDarkRed
+	colorWorkTime       = colorWhite
+	colorBreakEntry     = colorDarkGray
+	colorBreakInfo      = colorDarkGray
+	colorLeaveTime      = colorBlue
+	colorFlexiTimePlus  = colorGreen
+	colorFlexiTimeMinus = colorRed
+)
+
 func main() {
+	//TODO parameters
+	// --target-time {time}
+	// --leave-time {time} --> for estimation
+	// --go-home --> only show target time reached
+	// --dorma
+
+	//disableColors()
 	if err := process(); err != nil {
 		println("%s", err.Error())
 		os.Exit(1)
 	}
+}
+
+func disableColors() {
+	colorWorkTime = ""
+	colorBreakEntry = ""
+	colorBreakInfo = ""
+	colorLeaveTime = ""
+	colorFlexiTimePlus = ""
+	colorFlexiTimeMinus = ""
 }
 
 func process() error {
@@ -33,11 +69,10 @@ func process() error {
 
 	for _, entry := range entries {
 		if entry.Type == EntryTypeCome {
-			fmt.Print(" --> ")
+			println(" %s--> %s%s", colorComeEntry, entry.Time.Format("15:04"), colorEnd)
 		} else if entry.Type == EntryTypeLeave {
-			fmt.Print(" <-- ")
+			println(" %s<-- %s%s", colorLeaveEntry, entry.Time.Format("15:04"), colorEnd)
 		}
-		fmt.Println(entry.Time.Format("15:04"))
 	}
 	if len(entries) == 0 || entries[len(entries)-1].Type != EntryTypeCome {
 		println("EINSTECHEN! LOS!")
@@ -60,7 +95,11 @@ func process() error {
 
 	fmt.Println("-------------------------------------------")
 	flexiTime := workTime - targetTime
-	println("worktime: %s (%s)", formatDurationSeconds(accountedWorkTime), formatSignedDurationMinutes(flexiTime)) //TODO print sign
+	flexiTimeColor := colorFlexiTimePlus
+	if flexiTime < 0 {
+		flexiTimeColor = colorFlexiTimeMinus
+	}
+	println("worktime: %s%s%s (%s%s%s)", colorWorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, flexiTimeColor, formatSignedDurationMinutes(flexiTime), colorEnd) //TODO print sign
 	if accountedBreakTime != breakTime {
 		println("break:    %s (taken %s)", formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime))
 	} else {
@@ -86,9 +125,9 @@ func process() error {
 	breakTime3 := t3.Sub(startTime) - (9 * time.Hour)
 
 	fmt.Println("-------------------------------------------")
-	println("06:00 at %s (%s break)", t1.Format("15:04"), formatDurationMinutes(breakTime1))
-	println("%s at %s (%s break)", formatDurationMinutes(targetTime), t2.Format("15:04"), formatDurationMinutes(breakTime2))
-	println("09:00 at %s (%s break)", t3.Format("15:04"), formatDurationMinutes(breakTime3))
+	println("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime1), colorEnd)
+	println("%s%s at %s%s %s(%s break)%s", colorLeaveTime, formatDurationMinutes(targetTime), t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
+	println("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime3), colorEnd)
 
 	return nil
 }
