@@ -21,7 +21,7 @@ var (
 	colorLeaveEntry     = colorDarkRed
 	colorWorkTime       = colorWhite
 	colorBreakEntry     = colorGray
-	colorBreakInfo      = colorDarkGray
+	colorBreakInfo      = colorGray
 	colorLeaveTime      = colorBlue
 	colorFlexiTimePlus  = colorGreen
 	colorFlexiTimeMinus = colorRed
@@ -116,14 +116,20 @@ func process() error {
 	if err != nil {
 		return err
 	}
+	t4, err := GetLeaveTime(startTime, breakTime, 10*time.Hour)
+	if err != nil {
+		return err
+	}
 
 	breakTime1 := t1.Sub(startTime) - (6 * time.Hour)
 	breakTime2 := t2.Sub(startTime) - targetTime
 	breakTime3 := t3.Sub(startTime) - (9 * time.Hour)
+	breakTime4 := t4.Sub(startTime) - (10 * time.Hour)
 
 	fmt.Println("-------------------------------------------")
 	println("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime1), colorEnd)
 	println("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime3), colorEnd)
+	println("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime4), colorEnd)
 	fmt.Println("-------------------------------------------")
 	println("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colorLeaveTime, t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 
