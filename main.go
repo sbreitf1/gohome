@@ -15,11 +15,12 @@ var (
 	colorDarkGreen      = "\033[2;32m"
 	colorBlue           = "\033[1;34m"
 	colorWhite          = "\033[1;37m"
+	colorGray           = "\033[2;37m"
 	colorEnd            = "\033[0m"
 	colorComeEntry      = colorDarkGreen
 	colorLeaveEntry     = colorDarkRed
 	colorWorkTime       = colorWhite
-	colorBreakEntry     = colorDarkGray
+	colorBreakEntry     = colorGray
 	colorBreakInfo      = colorDarkGray
 	colorLeaveTime      = colorBlue
 	colorFlexiTimePlus  = colorGreen
@@ -62,7 +63,7 @@ func process() error {
 		return err
 	}
 
-	entries, err := FetchDormaEntries(dormaHost, user, pass)
+	entries, flexiTimeBalance, err := FetchDormaEntries(dormaHost, user, pass)
 	if err != nil {
 		return err
 	}
@@ -91,21 +92,17 @@ func process() error {
 		return err
 	}
 
-	//TODO flexitime (read from dorma and show here)
-
 	fmt.Println("-------------------------------------------")
 	flexiTime := workTime - targetTime
-	flexiTimeColor := colorFlexiTimePlus
-	if flexiTime < 0 {
-		flexiTimeColor = colorFlexiTimeMinus
-	}
-	println("worktime: %s%s%s (%s%s%s)", colorWorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, flexiTimeColor, formatSignedDurationMinutes(flexiTime), colorEnd) //TODO print sign
+	println("worktime:            %s%s%s (%s)", colorWorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
 	if accountedBreakTime != breakTime {
-		println("break:    %s (taken %s)", formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime))
+		println("%sbreak:               %s (taken %s)%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime), colorEnd)
 	} else {
-		println("break:    %s", formatDurationMinutes(accountedBreakTime))
+		println("%sbreak:               %s%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), colorEnd)
 	}
-	//TODO current flexitime
+
+	newFlexiTimeBalance := flexiTimeBalance + flexiTime
+	println("flexi-time balance: %s -> %s", formatFlexiTime(flexiTimeBalance), formatFlexiTime(newFlexiTimeBalance))
 
 	t1, err := GetLeaveTime(startTime, breakTime, 6*time.Hour)
 	if err != nil {
@@ -126,8 +123,9 @@ func process() error {
 
 	fmt.Println("-------------------------------------------")
 	println("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime1), colorEnd)
-	println("%s%s at %s%s %s(%s break)%s", colorLeaveTime, formatDurationMinutes(targetTime), t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 	println("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime3), colorEnd)
+	fmt.Println("-------------------------------------------")
+	println("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colorLeaveTime, t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 
 	return nil
 }
@@ -141,6 +139,14 @@ func formatDurationMinutes(d time.Duration) string {
 	hours := minutes / 60
 	minutes = minutes - (60 * hours)
 	return fmt.Sprintf("%02d:%02d", hours, minutes)
+}
+
+func formatFlexiTime(d time.Duration) string {
+	color := colorFlexiTimePlus
+	if d < 0 {
+		color = colorFlexiTimeMinus
+	}
+	return fmt.Sprintf("%s%s%s", color, formatSignedDurationMinutes(d), colorEnd)
 }
 
 func formatSignedDurationMinutes(d time.Duration) string {

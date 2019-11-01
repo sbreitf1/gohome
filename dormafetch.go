@@ -25,6 +25,7 @@ const (
 	urlDormaLogin     = "https://%s/scripts/login.aspx"
 	urlDormaLogout    = "https://%s/scripts/login.aspx?sessiontimedout=2"
 	urlDormaEntries   = "https://%s/scripts/buchungen/buchungsdata2.aspx?mode=0"
+	urlDormaFlexiTime = "https://%s/scripts/data3.aspx?mode=0"
 
 	// EntryTypeCome denotes an entry when entering the company.
 	EntryTypeCome EntryType = "come"
@@ -201,8 +202,8 @@ func readPassword() (string, error) {
 	return string(data), nil
 }
 
-// FetchDormaEntries returns today's entries available in "Aktuelle Buchungen" in Dorma.
-func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, error) {
+// FetchDormaEntries returns today's entries available in "Aktuelle Buchungen" in Dorma and the current flexitime balance.
+func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, time.Duration, error) {
 	client := &http.Client{
 		Transport: ntlmssp.Negotiator{
 			RoundTripper: &http.Transport{},
@@ -211,7 +212,7 @@ func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, error) {
 
 	sessionID, err := login(client, dormaHost, user, pass)
 	if err != nil {
-		return nil, fmt.Errorf("login failed: %s", err.Error())
+		return nil, 0, fmt.Errorf("login failed: %s", err.Error())
 	}
 
 	// ignore errors here -> result is already available or it failed anyway
@@ -219,10 +220,15 @@ func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, error) {
 
 	entries, err := getEntries(client, dormaHost, user, pass, sessionID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve entries: %s", err.Error())
+		return nil, 0, fmt.Errorf("failed to retrieve entries: %s", err.Error())
 	}
 
-	return entries, nil
+	flexitime, err := getFlexiTime(client, dormaHost, user, pass, sessionID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("could not retrieve flexitime: %s", err.Error())
+	}
+
+	return entries, flexitime, nil
 }
 
 func login(client *http.Client, dormaHost, user, pass string) (string, error) {
@@ -339,4 +345,42 @@ func getEntries(client *http.Client, dormaHost, user, pass, sessionID string) ([
 	}
 
 	return entries, nil
+}
+
+func getFlexiTime(client *http.Client, dormaHost, user, pass, sessionID string) (time.Duration, error) {
+	request, err := http.NewRequest("GET", fmt.Sprintf(urlDormaFlexiTime, dormaHost), nil)
+	if err != nil {
+		return 0, err
+	}
+	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionID})
+	request.SetBasicAuth(user, pass)
+
+	response, err := client.Do(request)
+	if err != nil {
+		return 0, err
+	}
+	if response.StatusCode != 200 {
+		return 0, fmt.Errorf("server returned code %d", response.StatusCode)
+	}
+
+	buffer := bytes.NewBuffer([]byte{})
+	if _, err := io.Copy(buffer, response.Body); err != nil {
+		return 0, err
+	}
+
+	body := buffer.String()
+
+	pattern := regexp.MustCompile(`<input\s+type="hidden"\s+name="glz"\s+id="glz"\s+value="[&nbsp; ]*(-?)\s*(\d+):(\d+)"\s*>`)
+	m := pattern.FindStringSubmatch(body)
+	if len(m) != 4 {
+		return 0, fmt.Errorf("unable to parse current flexi-time balance")
+	}
+
+	sign := 1
+	if m[1] == "-" {
+		sign = -1
+	}
+	hours, _ := strconv.Atoi(m[2])
+	minutes, _ := strconv.Atoi(m[3])
+	return time.Duration(sign) * (time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute), nil
 }
