@@ -114,9 +114,9 @@ func process() error {
 		}
 
 		fmt.Println("-------------------------------------------")
-		flexiTime := noSeconds(workTime) - targetTime
+		flexiTime := noSeconds(accountedWorkTime) - targetTime
 		println("worktime:            %s%s%s (%s)", colorWorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
-		if accountedBreakTime != breakTime {
+		if noSeconds(accountedBreakTime) != noSeconds(breakTime) {
 			println("%sbreak:               %s (taken %s)%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime), colorEnd)
 		} else {
 			println("%sbreak:               %s%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), colorEnd)
