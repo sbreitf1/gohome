@@ -4,6 +4,14 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/alecthomas/kingpin"
+)
+
+var (
+	appMain       = kingpin.New("worktime", "Shows current worktime of the day and estimates flexi times.")
+	argLeaveTime  = appMain.Flag("leave", "Show statistics for a given leave time in format '15:04'").Short('l').String()
+	argTargetTime = appMain.Flag("target-time", "Your daily target time like '08:00'").Default("08:00").Short('t').String()
 )
 
 var (
@@ -28,11 +36,10 @@ var (
 )
 
 func main() {
+	kingpin.MustParse(appMain.Parse(os.Args[1:]))
+
 	//TODO parameters
-	// --target-time {time}
-	// --leave-time {time} --> for estimation
 	// --go-home --> only show target time reached
-	// --dorma
 
 	//disableColors()
 	if err := process(); err != nil {
@@ -51,7 +58,15 @@ func disableColors() {
 }
 
 func process() error {
-	targetTime := 8 * time.Hour
+	targetTime := time.Duration(8) * time.Hour
+	if len(*argTargetTime) > 0 {
+		t, err := time.Parse("15:04", *argTargetTime)
+		if err != nil {
+			return err
+		}
+		targetTime = time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute
+		//TODO check target time
+	}
 
 	dormaHost, err := GetDefaultDormaHost("go-worktime-app")
 	if err != nil {
@@ -68,72 +83,85 @@ func process() error {
 		return err
 	}
 
-	for _, entry := range entries {
-		if entry.Type == EntryTypeCome {
-			println(" %s--> %s%s", colorComeEntry, entry.Time.Format("15:04"), colorEnd)
-		} else if entry.Type == EntryTypeLeave {
-			println(" %s<-- %s%s", colorLeaveEntry, entry.Time.Format("15:04"), colorEnd)
+	if len(entries) > 0 {
+		if len(*argLeaveTime) > 0 {
+			t, err := time.Parse("15:04", *argLeaveTime)
+			if err != nil {
+				return err
+			}
+			now := time.Now()
+			leaveTime := time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), 0, 0, time.Local)
+			//TODO check leaveTime
+			entries = append(entries, Entry{Type: EntryTypeLeave, Time: leaveTime})
 		}
-	}
-	if len(entries) == 0 || entries[len(entries)-1].Type != EntryTypeCome {
-		println("EINSTECHEN! LOS!")
-		if len(entries) == 0 {
-			os.Exit(1)
+
+		for _, entry := range entries {
+			if entry.Type == EntryTypeCome {
+				println(" %s--> %s%s", colorComeEntry, entry.Time.Format("15:04"), colorEnd)
+			} else if entry.Type == EntryTypeLeave {
+				println(" %s<-- %s%s", colorLeaveEntry, entry.Time.Format("15:04"), colorEnd)
+			}
 		}
+
+		workTime, startTime, breakTime, err := ComputeWorkTime(entries)
+		if err != nil {
+			return err
+		}
+
+		accountedWorkTime, accountedBreakTime, err := ComputeAccountedWorkTime(workTime, breakTime)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("-------------------------------------------")
+		flexiTime := noSeconds(workTime) - targetTime
+		println("worktime:            %s%s%s (%s)", colorWorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
+		if accountedBreakTime != breakTime {
+			println("%sbreak:               %s (taken %s)%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime), colorEnd)
+		} else {
+			println("%sbreak:               %s%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), colorEnd)
+		}
+
+		newFlexiTimeBalance := flexiTimeBalance + flexiTime
+		println("flexi-time balance: %s -> %s", formatFlexiTime(flexiTimeBalance), formatFlexiTime(newFlexiTimeBalance))
+
+		t1, err := GetLeaveTime(startTime, breakTime, 6*time.Hour)
+		if err != nil {
+			return err
+		}
+		t2, err := GetLeaveTime(startTime, breakTime, targetTime)
+		if err != nil {
+			return err
+		}
+		t3, err := GetLeaveTime(startTime, breakTime, 9*time.Hour)
+		if err != nil {
+			return err
+		}
+		t4, err := GetLeaveTime(startTime, breakTime, 10*time.Hour)
+		if err != nil {
+			return err
+		}
+
+		breakTime1 := t1.Sub(startTime) - (6 * time.Hour)
+		breakTime2 := t2.Sub(startTime) - targetTime
+		breakTime3 := t3.Sub(startTime) - (9 * time.Hour)
+		breakTime4 := t4.Sub(startTime) - (10 * time.Hour)
+
+		fmt.Println("-------------------------------------------")
+		println("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime1), colorEnd)
+		println("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime3), colorEnd)
+		println("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime4), colorEnd)
+		fmt.Println("-------------------------------------------")
+		println("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colorLeaveTime, t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 	}
 
-	workTime, startTime, breakTime, err := ComputeWorkTime(entries)
-	if err != nil {
-		return err
-	}
-
-	accountedWorkTime, accountedBreakTime, err := ComputeAccountedWorkTime(workTime, breakTime)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("-------------------------------------------")
-	flexiTime := workTime - targetTime
-	println("worktime:            %s%s%s (%s)", colorWorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
-	if accountedBreakTime != breakTime {
-		println("%sbreak:               %s (taken %s)%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime), colorEnd)
-	} else {
-		println("%sbreak:               %s%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), colorEnd)
-	}
-
-	newFlexiTimeBalance := flexiTimeBalance + flexiTime
-	println("flexi-time balance: %s -> %s", formatFlexiTime(flexiTimeBalance), formatFlexiTime(newFlexiTimeBalance))
-
-	t1, err := GetLeaveTime(startTime, breakTime, 6*time.Hour)
-	if err != nil {
-		return err
-	}
-	t2, err := GetLeaveTime(startTime, breakTime, targetTime)
-	if err != nil {
-		return err
-	}
-	t3, err := GetLeaveTime(startTime, breakTime, 9*time.Hour)
-	if err != nil {
-		return err
-	}
-	t4, err := GetLeaveTime(startTime, breakTime, 10*time.Hour)
-	if err != nil {
-		return err
-	}
-
-	breakTime1 := t1.Sub(startTime) - (6 * time.Hour)
-	breakTime2 := t2.Sub(startTime) - targetTime
-	breakTime3 := t3.Sub(startTime) - (9 * time.Hour)
-	breakTime4 := t4.Sub(startTime) - (10 * time.Hour)
-
-	fmt.Println("-------------------------------------------")
-	println("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime1), colorEnd)
-	println("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime3), colorEnd)
-	println("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime4), colorEnd)
-	fmt.Println("-------------------------------------------")
-	println("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colorLeaveTime, t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
+	//TODO print warning "nicht eingestochen" in red
 
 	return nil
+}
+
+func noSeconds(t time.Duration) time.Duration {
+	return time.Duration(int(t.Minutes())) * time.Minute
 }
 
 func println(format string, a ...interface{}) {
