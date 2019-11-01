@@ -21,11 +21,12 @@ import (
 )
 
 const (
+	//TODO http/https configurable
 	sessionCookieName = "ASP.NET_SessionId"
-	urlDormaLogin     = "https://%s/scripts/login.aspx"
-	urlDormaLogout    = "https://%s/scripts/login.aspx?sessiontimedout=2"
-	urlDormaEntries   = "https://%s/scripts/buchungen/buchungsdata2.aspx?mode=0"
-	urlDormaFlexiTime = "https://%s/scripts/data3.aspx?mode=0"
+	urlDormaLogin     = "%s/scripts/login.aspx"
+	urlDormaLogout    = "%s/scripts/login.aspx?sessiontimedout=2"
+	urlDormaEntries   = "%s/scripts/buchungen/buchungsdata2.aspx?mode=0"
+	urlDormaFlexiTime = "%s/scripts/data3.aspx?mode=0"
 
 	// EntryTypeCome denotes an entry when entering the company.
 	EntryTypeCome EntryType = "come"
@@ -56,6 +57,10 @@ func GetDefaultDormaHost(appID string) (string, error) {
 	}
 
 	if host, ok := hosts[appID]; ok {
+		if !strings.HasPrefix(strings.ToLower(host), "http://") && !strings.HasPrefix(strings.ToLower(host), "https://") {
+			// backward-compatibility for missing protocols
+			return "https://" + host, nil
+		}
 		return host, nil
 	}
 
@@ -64,6 +69,16 @@ func GetDefaultDormaHost(appID string) (string, error) {
 	host, err := readString()
 	if err != nil {
 		return "", err
+	}
+
+	// ensure protocol is appended
+	if !strings.HasPrefix(strings.ToLower(host), "http://") && !strings.HasPrefix(strings.ToLower(host), "https://") {
+		host = "https://" + host
+	}
+	// and now remove path information
+	protIndex := strings.Index(host, "://")
+	if index := strings.Index(host[protIndex+3:], "/"); index >= 0 {
+		host = host[:index+protIndex+3]
 	}
 
 	hosts[appID] = host
@@ -119,6 +134,18 @@ func GetCredentials(dormaHost string) (string, string, error) {
 
 	if c, ok := credentials[dormaHost]; ok {
 		return c.User, c.Pass, nil
+	}
+
+	// try with missing protocol for backwards compatibility
+	if strings.HasPrefix(strings.ToLower(dormaHost), "http://") {
+		if c, ok := credentials[dormaHost[7:]]; ok {
+			return c.User, c.Pass, nil
+		}
+	}
+	if strings.HasPrefix(strings.ToLower(dormaHost), "https://") {
+		if c, ok := credentials[dormaHost[8:]]; ok {
+			return c.User, c.Pass, nil
+		}
 	}
 
 	fmt.Println(fmt.Sprintf("No credentials for host %q available. Please enter host below:", dormaHost))

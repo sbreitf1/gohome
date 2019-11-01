@@ -21,7 +21,7 @@ var (
 	colorLeaveEntry     = colorDarkRed
 	colorWorkTime       = colorWhite
 	colorBreakEntry     = colorGray
-	colorBreakInfo      = colorGray
+	colorBreakInfo      = colorDarkGray
 	colorLeaveTime      = colorBlue
 	colorFlexiTimePlus  = colorGreen
 	colorFlexiTimeMinus = colorRed
