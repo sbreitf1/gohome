@@ -15,9 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/ssh/terminal"
-
 	"github.com/Azure/go-ntlmssp"
+	"github.com/sbreitf1/go-console"
 )
 
 const (
@@ -64,9 +63,9 @@ func GetDefaultDormaHost(appID string) (string, error) {
 		return host, nil
 	}
 
-	fmt.Println(fmt.Sprintf("No Dorma host for app %q defined. Please enter host below:", appID))
-	fmt.Print("> ")
-	host, err := readString()
+	console.Printlnf("No Dorma host for app %q defined. Please enter host below:", appID)
+	console.Print("> ")
+	host, err := console.ReadLine()
 	if err != nil {
 		return "", err
 	}
@@ -148,15 +147,15 @@ func GetCredentials(dormaHost string) (string, string, error) {
 		}
 	}
 
-	fmt.Println(fmt.Sprintf("No credentials for host %q available. Please enter host below:", dormaHost))
-	fmt.Print("User> ")
-	user, err := readString()
+	console.Printlnf("No credentials for host %q available. Please enter host below:", dormaHost)
+	console.Print("User> ")
+	user, err := console.ReadLine()
 	if err != nil {
 		return "", "", err
 	}
 
-	fmt.Print("Pass> ")
-	pass, err := readPassword()
+	console.Print("Pass> ")
+	pass, err := console.ReadPassword()
 	if err != nil {
 		return "", "", err
 	}
@@ -195,38 +194,6 @@ func writeHostCredentials(file string, hosts map[string]credential) error {
 	}
 
 	return ioutil.WriteFile(file, data, os.ModePerm)
-}
-
-func readRune() (rune, error) {
-	buffer := []byte{0}
-	_, err := os.Stdin.Read(buffer)
-	if err != nil {
-		return '\000', err
-	}
-	return rune(buffer[0]), nil
-}
-
-func readString() (string, error) {
-	var sb strings.Builder
-	for {
-		r, err := readRune()
-		if err != nil {
-			return sb.String(), err
-		}
-		if r == '\n' {
-			break
-		}
-		sb.WriteRune(r)
-	}
-	return sb.String(), nil
-}
-
-func readPassword() (string, error) {
-	data, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
 }
 
 // FetchDormaEntries returns today's entries available in "Aktuelle Buchungen" in Dorma and the current flexitime balance.

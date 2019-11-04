@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/sbreitf1/go-console"
+
 	"github.com/alecthomas/kingpin"
 )
 
@@ -12,6 +14,7 @@ var (
 	appMain       = kingpin.New("worktime", "Shows current worktime of the day and estimates flexi times.")
 	argLeaveTime  = appMain.Flag("leave", "Show statistics for a given leave time in format '15:04'").Short('l').String()
 	argTargetTime = appMain.Flag("target-time", "Your daily target time like '08:00'").Default("08:00").Short('t').String()
+	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input instead").Short('b').String()
 )
 
 var (
@@ -62,7 +65,7 @@ func process() error {
 	if len(*argTargetTime) > 0 {
 		t, err := time.Parse("15:04", *argTargetTime)
 		if err != nil {
-			return err
+			return fmt.Errorf("Failed to parse target time: %s", err.Error())
 		}
 		targetTime = time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute
 		//TODO check target time
@@ -87,7 +90,7 @@ func process() error {
 		if len(*argLeaveTime) > 0 {
 			t, err := time.Parse("15:04", *argLeaveTime)
 			if err != nil {
-				return err
+				return fmt.Errorf("Failed to parse lave time: %s", err.Error())
 			}
 			now := time.Now()
 			leaveTime := time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), 0, 0, time.Local)
@@ -108,12 +111,21 @@ func process() error {
 			return err
 		}
 
+		if len(*argBreakTime) > 0 {
+			t, err := time.Parse("15:04", *argBreakTime)
+			if err != nil {
+				return fmt.Errorf("Failed to parse break time: %s", err.Error())
+			}
+
+			breakTime = time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute
+		}
+
 		accountedWorkTime, accountedBreakTime, err := ComputeAccountedWorkTime(workTime, breakTime)
 		if err != nil {
 			return err
 		}
 
-		fmt.Println("-------------------------------------------")
+		println("-------------------------------------------")
 		flexiTime := noSeconds(accountedWorkTime) - targetTime
 		println("worktime:            %s%s%s (%s)", colorWorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
 		if noSeconds(accountedBreakTime) != noSeconds(breakTime) {
@@ -147,11 +159,11 @@ func process() error {
 		breakTime3 := t3.Sub(startTime) - (9 * time.Hour)
 		breakTime4 := t4.Sub(startTime) - (10 * time.Hour)
 
-		fmt.Println("-------------------------------------------")
+		println("-------------------------------------------")
 		println("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime1), colorEnd)
 		println("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime3), colorEnd)
 		println("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime4), colorEnd)
-		fmt.Println("-------------------------------------------")
+		println("-------------------------------------------")
 		println("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colorLeaveTime, t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 	}
 
@@ -165,7 +177,7 @@ func noSeconds(t time.Duration) time.Duration {
 }
 
 func println(format string, a ...interface{}) {
-	fmt.Println(fmt.Sprintf(format, a...))
+	console.Printlnf(format, a...)
 }
 
 func formatDurationMinutes(d time.Duration) string {
