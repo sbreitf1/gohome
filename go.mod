@@ -1,4 +1,4 @@
-module github.com/sbreitf1/go-worktime
+module github.com/sbreitf1/gohome
 
 go 1.13
 
