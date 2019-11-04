@@ -9,5 +9,5 @@ require (
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
 	github.com/sbreitf1/go-console v0.0.0-20191104080804-39a87ed68626
 	github.com/stretchr/testify v1.4.0
-	golang.org/x/crypto v0.0.0-20191029031824-8986dd9e96cf
+	golang.org/x/sys v0.0.0-20191029155521-f43be2a4598c // indirect
 )

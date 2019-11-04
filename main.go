@@ -14,7 +14,7 @@ var (
 	appMain       = kingpin.New("worktime", "Shows current worktime of the day and estimates flexi times.")
 	argLeaveTime  = appMain.Flag("leave", "Show statistics for a given leave time in format '15:04'").Short('l').String()
 	argTargetTime = appMain.Flag("target-time", "Your daily target time like '08:00'").Default("08:00").Short('t').String()
-	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input instead").Short('b').String()
+	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
 )
 
 var (
