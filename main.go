@@ -15,6 +15,7 @@ var (
 	argLeaveTime  = appMain.Flag("leave", "Show statistics for a given leave time in format '15:04'").Short('l').String()
 	argTargetTime = appMain.Flag("target-time", "Your daily target time like '08:00'").Default("08:00").Short('t').String()
 	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
+	argColleagues = appMain.Flag("colleagues", "Show which colleagues are currently here.").Short('c').Bool()
 )
 
 var (
@@ -37,6 +38,11 @@ var (
 	colorFlexiTimePlus  = colorGreen
 	colorFlexiTimeMinus = colorRed
 )
+
+type Colleague struct {
+	LoggedIn bool
+	Name     string
+}
 
 func main() {
 	kingpin.MustParse(appMain.Parse(os.Args[1:]))
@@ -81,9 +87,21 @@ func process() error {
 		return err
 	}
 
-	entries, flexiTimeBalance, err := FetchDormaEntries(dormaHost, user, pass)
+	entries, flexiTimeBalance, colleagues, err := FetchDormaEntries(dormaHost, user, pass)
 	if err != nil {
 		return err
+	}
+
+	if *argColleagues {
+		for _, c := range colleagues {
+			if c.LoggedIn {
+				println("%s%s%s", colorGreen, c.Name, colorEnd)
+			} else {
+				println("%s%s%s", colorRed, c.Name, colorEnd)
+			}
+		}
+
+		return nil
 	}
 
 	if len(entries) > 0 {
