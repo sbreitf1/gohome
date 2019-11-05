@@ -414,7 +414,7 @@ func GetColleagues(client *http.Client, dormaHost, user, pass, sessionID string)
 	var colleagues []Colleague
 
 	for _, m := range matches {
-		loggedIn := (m[1] == "00FF00")
+		loggedIn := (m[1] == "00CC00")
 		name := strings.TrimSpace(m[3]) + " " + strings.TrimSpace(m[2])
 		colleagues = append(colleagues, Colleague{loggedIn, name})
 	}
