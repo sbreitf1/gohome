@@ -148,7 +148,7 @@ func GetCredentials(dormaHost string) (string, string, error) {
 		}
 	}
 
-	console.Printlnf("No credentials for host %q available. Please enter host below:", dormaHost)
+	console.Printlnf("No credentials for host %q available. Please enter below:", dormaHost)
 	console.Print("User> ")
 	user, err := console.ReadLine()
 	if err != nil {
@@ -385,6 +385,13 @@ func getFlexiTime(client *http.Client, dormaHost, user, pass, sessionID string) 
 	return time.Duration(sign) * (time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute), nil
 }
 
+// Colleague represents a colleague with name and status.
+type Colleague struct {
+	LoggedIn bool
+	Name     string
+}
+
+// GetColleagues returns all visible colleagues and their current status from the Dorma interface.
 func GetColleagues(client *http.Client, dormaHost, user, pass, sessionID string) ([]Colleague, error) {
 	request, err := http.NewRequest("GET", fmt.Sprintf(urlCrewBoard, dormaHost), nil)
 	if err != nil {

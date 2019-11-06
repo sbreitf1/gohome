@@ -39,11 +39,6 @@ var (
 	colorFlexiTimeMinus = colorRed
 )
 
-type Colleague struct {
-	LoggedIn bool
-	Name     string
-}
-
 func main() {
 	kingpin.MustParse(appMain.Parse(os.Args[1:]))
 
