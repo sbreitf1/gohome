@@ -26,6 +26,7 @@ const (
 	urlDormaLogout    = "%s/scripts/login.aspx?sessiontimedout=2"
 	urlDormaEntries   = "%s/scripts/buchungen/buchungsdata2.aspx?mode=0"
 	urlDormaFlexiTime = "%s/scripts/data3.aspx?mode=0"
+	urlCrewBoard      = "%s/scripts/ze-stellen/abtdata.aspx?mode=25"
 
 	// EntryTypeCome denotes an entry when entering the company.
 	EntryTypeCome EntryType = "come"
@@ -197,7 +198,7 @@ func writeHostCredentials(file string, hosts map[string]credential) error {
 }
 
 // FetchDormaEntries returns today's entries available in "Aktuelle Buchungen" in Dorma and the current flexitime balance.
-func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, time.Duration, error) {
+func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, time.Duration, []Colleague, error) {
 	client := &http.Client{
 		Transport: ntlmssp.Negotiator{
 			RoundTripper: &http.Transport{},
@@ -206,7 +207,7 @@ func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, time.Durat
 
 	sessionID, err := login(client, dormaHost, user, pass)
 	if err != nil {
-		return nil, 0, fmt.Errorf("login failed: %s", err.Error())
+		return nil, 0, nil, fmt.Errorf("login failed: %s", err.Error())
 	}
 
 	// ignore errors here -> result is already available or it failed anyway
@@ -214,15 +215,20 @@ func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, time.Durat
 
 	entries, err := getEntries(client, dormaHost, user, pass, sessionID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to retrieve entries: %s", err.Error())
+		return nil, 0, nil, fmt.Errorf("failed to retrieve entries: %s", err.Error())
 	}
 
 	flexitime, err := getFlexiTime(client, dormaHost, user, pass, sessionID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("could not retrieve flexitime: %s", err.Error())
+		return nil, 0, nil, fmt.Errorf("could not retrieve flexitime: %s", err.Error())
 	}
 
-	return entries, flexitime, nil
+	colleagues, err := GetColleagues(client, dormaHost, user, pass, sessionID)
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("could not retrieve colleagues: %s", err.Error())
+	}
+
+	return entries, flexitime, colleagues, nil
 }
 
 func login(client *http.Client, dormaHost, user, pass string) (string, error) {
@@ -377,4 +383,41 @@ func getFlexiTime(client *http.Client, dormaHost, user, pass, sessionID string) 
 	hours, _ := strconv.Atoi(m[2])
 	minutes, _ := strconv.Atoi(m[3])
 	return time.Duration(sign) * (time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute), nil
+}
+
+func GetColleagues(client *http.Client, dormaHost, user, pass, sessionID string) ([]Colleague, error) {
+	request, err := http.NewRequest("GET", fmt.Sprintf(urlCrewBoard, dormaHost), nil)
+	if err != nil {
+		return nil, err
+	}
+	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionID})
+	request.SetBasicAuth(user, pass)
+
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != 200 {
+		return nil, fmt.Errorf("server returned code %d", response.StatusCode)
+	}
+
+	buffer := bytes.NewBuffer([]byte{})
+	if _, err := io.Copy(buffer, response.Body); err != nil {
+		return nil, err
+	}
+
+	body := buffer.String()
+
+	pattern := regexp.MustCompile(`<td class="td-tabelle-fett" style="border: 1px solid #(.+); border-left: 0px;border-right: 0px;">&nbsp;&nbsp;(.+),(.+)</td>`)
+	matches := pattern.FindAllStringSubmatch(body, -1)
+
+	var colleagues []Colleague
+
+	for _, m := range matches {
+		loggedIn := (m[1] == "00CC00")
+		name := strings.TrimSpace(m[3]) + " " + strings.TrimSpace(m[2])
+		colleagues = append(colleagues, Colleague{loggedIn, name})
+	}
+
+	return colleagues, nil
 }
