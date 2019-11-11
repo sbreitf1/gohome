@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/Azure/go-ntlmssp"
-	"github.com/danielb42/gpgutil"
 	"github.com/sbreitf1/go-console"
+	"github.com/sbreitf1/gpgutil"
 )
 
 const (
