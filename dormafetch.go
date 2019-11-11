@@ -370,7 +370,7 @@ func getFlexiTime(client *http.Client, dormaHost, user, pass, sessionID string) 
 
 	body := buffer.String()
 
-	pattern := regexp.MustCompile(`<input\s+type="hidden"\s+name="glz"\s+id="glz"\s+value="[&nbsp; ]*(-?)\s*(\d+):(\d+)"\s*>`)
+	pattern := regexp.MustCompile(`<input\s+type="hidden"\s+name="glz"\s+id="glz"\s+value="\s*(-?)\s*[&nbsp;]*\s*(\d+):(\d+)"\s*>`)
 	m := pattern.FindStringSubmatch(body)
 	if len(m) != 4 {
 		return 0, fmt.Errorf("unable to parse current flexi-time balance")
