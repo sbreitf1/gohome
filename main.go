@@ -16,6 +16,7 @@ var (
 	argTargetTime = appMain.Flag("target-time", "Your daily target time like '08:00'").Default("08:00").Short('t').String()
 	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
 	argColleagues = appMain.Flag("colleagues", "Show which colleagues are currently here.").Short('c').Bool()
+	argPGPKeyName = appMain.Flag("keyname", "Name/ID of GPG key to decrypt hosts-credentials file").Short('k').String()
 )
 
 var (
