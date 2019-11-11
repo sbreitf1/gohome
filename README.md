@@ -19,7 +19,7 @@ You will probably be asked to enter a Dorma host. Paste the same host here you v
 
 ![blub](login.png)
 
-These values are remembered in `~/.dorma/` and are used in all following runs.
+These values are remembered in `~/.dorma/` and are used in all following runs. It's plaintext, but you can encrypt the file `~/.dorma/host-credentials` with a PGP key of your choice (must add `.pgp` to filename) and supply `-k <Key-ID>` to subsequent gohome-calls.
 
 ## Thanks
 
