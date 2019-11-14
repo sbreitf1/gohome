@@ -17,6 +17,7 @@ import (
 
 	"github.com/Azure/go-ntlmssp"
 	"github.com/sbreitf1/go-console"
+	"github.com/sbreitf1/gpgutil"
 )
 
 const (
@@ -168,7 +169,19 @@ func GetCredentials(dormaHost string) (string, string, error) {
 }
 
 func readHostCredentials(file string) (map[string]credential, error) {
-	data, err := ioutil.ReadFile(file)
+	var (
+		data []byte
+		err  error
+	)
+
+	_, err = os.Stat(file + ".gpg")
+	if err == nil {
+		key := gpgutil.MakeNamedKeySource(*argPGPKeyName, "")
+		data, err = gpgutil.DecryptFileToByteSlice(file+".gpg", key, nil)
+	} else {
+		data, err = ioutil.ReadFile(file)
+	}
+
 	if err != nil {
 		if os.IsNotExist(err) {
 			return make(map[string]credential), nil
