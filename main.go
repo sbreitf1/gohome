@@ -75,12 +75,12 @@ func process() error {
 
 	dormaHost, err := GetDefaultDormaHost("gohome-app")
 	if err != nil {
-		return err
+		return fmt.Errorf("Unable to retrieve Dorma Host: %s", err.Error())
 	}
 
 	user, pass, err := GetCredentials(dormaHost)
 	if err != nil {
-		return err
+		return fmt.Errorf("Unable to retrieve Dorma Credentials: %s", err.Error())
 	}
 
 	entries, flexiTimeBalance, colleagues, err := FetchDormaEntries(dormaHost, user, pass)

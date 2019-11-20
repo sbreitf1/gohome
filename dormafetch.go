@@ -169,16 +169,26 @@ func GetCredentials(dormaHost string) (string, string, error) {
 }
 
 func readHostCredentials(file string) (map[string]credential, error) {
-	var (
-		data []byte
-		err  error
-	)
-
-	_, err = os.Stat(file + ".gpg")
-	if err == nil {
-		key := gpgutil.MakeNamedKeySource(*argPGPKeyName, "")
-		data, err = gpgutil.DecryptFileToByteSlice(file+".gpg", key, nil)
+	var data []byte
+	var err error
+	rewriteFile := false
+	if len(*argPGPKeyName) > 0 {
+		_, gpgErr := os.Stat(file + ".gpg")
+		if gpgErr == nil {
+			key := gpgutil.MakeNamedKeySource(*argPGPKeyName, "")
+			data, err = gpgutil.DecryptFileToByteSlice(file+".gpg", key, nil)
+		} else {
+			// force encrypted re-write of unencrypted file
+			rewriteFile = true
+		}
 	} else {
+		_, gpgErr := os.Stat(file + ".gpg")
+		if !os.IsNotExist(gpgErr) {
+			return nil, fmt.Errorf("GPG key required, encrypted configuration exits")
+		}
+	}
+
+	if data == nil && err == nil {
 		data, err = ioutil.ReadFile(file)
 	}
 
@@ -194,6 +204,15 @@ func readHostCredentials(file string) (map[string]credential, error) {
 		return nil, err
 	}
 
+	if rewriteFile {
+		if err := writeHostCredentials(file, credentials); err != nil {
+			console.Printlnf("Failed to write credentials file %q: %s", file, err.Error())
+		} else {
+			// delete old file
+			os.Remove(file)
+		}
+	}
+
 	return credentials, nil
 }
 
@@ -207,6 +226,10 @@ func writeHostCredentials(file string, hosts map[string]credential) error {
 		return err
 	}
 
+	if len(*argPGPKeyName) > 0 {
+		key := gpgutil.MakeNamedKeySource(*argPGPKeyName, "")
+		return gpgutil.EncryptByteSliceToFile(data, file+".gpg", key, nil)
+	}
 	return ioutil.WriteFile(file, data, os.ModePerm)
 }
 

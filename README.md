@@ -19,7 +19,17 @@ You will probably be asked to enter a Dorma host. Paste the same host here you v
 
 ![blub](login.png)
 
-These values are remembered in `~/.dorma/` and are used in all following runs. It's plaintext, but you can encrypt the file `~/.dorma/host-credentials` with a PGP key of your choice (must add `.pgp` to filename) and supply `-k <Key-ID>` to subsequent gohome-calls.
+These values are remembered in `~/.dorma/` and are used in all following runs.
+
+## Credential Encryption
+
+Use the parameter `--keyname` (or `-k`) to specify a PGP key installed to your local keystore. That key will be used to encrypt your credentials file:
+
+```
+gohome -k me@example.com
+```
+
+An unencrypted credentials file will be automatically encrypted once you pass the key parameter. To go back to using a raw credentials file you need to manually decrypt the file `~/.dorma/host-credentials.gpg` to the raw file `~/.dorma/host-credentials`.
 
 ## Thanks
 
