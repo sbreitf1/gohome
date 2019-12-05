@@ -373,6 +373,9 @@ func getEntries(client *http.Client, dormaHost, user, pass, sessionID string) ([
 			entryType = EntryTypeCome
 		} else if strings.Contains(strings.ToLower(typeStr), "gehen") {
 			entryType = EntryTypeLeave
+		} else if strings.Contains(strings.ToLower(typeStr), "dienstgang") {
+			// just ignore entry "DG Dienstgang" -> come and leave entries are present as normal
+			continue
 		} else if strings.Contains(strings.ToLower(typeStr), "heimarbeit") {
 			// just ignore entry "HE Heimarbeit" -> come and leave entries are present as normal
 			continue
