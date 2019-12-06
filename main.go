@@ -90,10 +90,12 @@ func process() error {
 
 	if *argColleagues {
 		for _, c := range colleagues {
-			if c.LoggedIn {
-				println("%s%s%s", colorGreen, c.Name, colorEnd)
-			} else {
+			if !c.LoggedIn {
 				println("%s%s%s", colorRed, c.Name, colorEnd)
+			} else if c.InHomeOffice {
+				println("%s%s%s %s%s%s", colorDarkGreen, c.Name, colorEnd, colorGray, "(in home office)", colorEnd)
+			} else {
+				println("%s%s%s", colorGreen, c.Name, colorEnd)
 			}
 		}
 
