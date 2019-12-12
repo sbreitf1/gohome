@@ -193,7 +193,7 @@ func noSeconds(t time.Duration) time.Duration {
 }
 
 func println(format string, a ...interface{}) {
-	console.Printlnf(format, a...) //nolint:errcheck
+	console.Printlnf(format, a...)
 }
 
 func formatDurationMinutes(d time.Duration) string {

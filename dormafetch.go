@@ -1,4 +1,3 @@
-//nolint:errcheck
 package main
 
 import (
@@ -261,7 +260,7 @@ func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, time.Durat
 		return nil, 0, nil, fmt.Errorf("could not retrieve flexitime: %s", err.Error())
 	}
 
-	colleagues, err := GetPresentColleagues(client, dormaHost, user, pass, sessionID)
+	colleagues, err := getPresentColleagues(client, dormaHost, user, pass, sessionID)
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("could not retrieve colleagues: %s", err.Error())
 	}
@@ -436,7 +435,7 @@ type Colleague struct {
 	InHomeOffice bool
 }
 
-func GetPresentColleagues(client *http.Client, dormaHost, user, pass, sessionID string) ([]Colleague, error) {
+func getPresentColleagues(client *http.Client, dormaHost, user, pass, sessionID string) ([]Colleague, error) {
 	c1, err := getColleaguesFromAnwesenheitsTableau(client, dormaHost, user, pass, sessionID)
 	if err != nil {
 		return nil, err
