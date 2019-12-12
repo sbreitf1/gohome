@@ -20,7 +20,7 @@ var (
 )
 
 var (
-	colorLightGray      = "\033[0;37m"
+	//colorLightGray      = "\033[0;37m"
 	colorDarkGray       = "\033[1;30m"
 	colorRed            = "\033[0;31m"
 	colorGreen          = "\033[0;32m"
@@ -53,14 +53,14 @@ func main() {
 	}
 }
 
-func disableColors() {
-	colorWorkTime = ""
-	colorBreakEntry = ""
-	colorBreakInfo = ""
-	colorLeaveTime = ""
-	colorFlexiTimePlus = ""
-	colorFlexiTimeMinus = ""
-}
+// func disableColors() {
+// 	colorWorkTime = ""
+// 	colorBreakEntry = ""
+// 	colorBreakInfo = ""
+// 	colorLeaveTime = ""
+// 	colorFlexiTimePlus = ""
+// 	colorFlexiTimeMinus = ""
+// }
 
 func process() error {
 	targetTime := time.Duration(8) * time.Hour
@@ -90,10 +90,12 @@ func process() error {
 
 	if *argColleagues {
 		for _, c := range colleagues {
-			if c.LoggedIn {
-				println("%s%s%s", colorGreen, c.Name, colorEnd)
-			} else {
+			if !c.LoggedIn {
 				println("%s%s%s", colorRed, c.Name, colorEnd)
+			} else if c.InHomeOffice {
+				println("%s%s%s %s%s%s", colorDarkGreen, c.Name, colorEnd, colorGray, "(in home office)", colorEnd)
+			} else {
+				println("%s%s%s", colorGreen, c.Name, colorEnd)
 			}
 		}
 
@@ -191,7 +193,7 @@ func noSeconds(t time.Duration) time.Duration {
 }
 
 func println(format string, a ...interface{}) {
-	console.Printlnf(format, a...)
+	console.Printlnf(format, a...) //nolint:errcheck
 }
 
 func formatDurationMinutes(d time.Duration) string {

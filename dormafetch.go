@@ -1,3 +1,4 @@
+//nolint:errcheck
 package main
 
 import (
@@ -22,12 +23,13 @@ import (
 
 const (
 	//TODO http/https configurable
-	sessionCookieName = "ASP.NET_SessionId"
-	urlDormaLogin     = "%s/scripts/login.aspx"
-	urlDormaLogout    = "%s/scripts/login.aspx?sessiontimedout=2"
-	urlDormaEntries   = "%s/scripts/buchungen/buchungsdata2.aspx?mode=0"
-	urlDormaFlexiTime = "%s/scripts/data3.aspx?mode=0"
-	urlCrewBoard      = "%s/scripts/ze-stellen/abtdata.aspx?mode=25"
+	sessionCookieName      = "ASP.NET_SessionId"
+	urlDormaLogin          = "%s/scripts/login.aspx"
+	urlDormaLogout         = "%s/scripts/login.aspx?sessiontimedout=2"
+	urlDormaEntries        = "%s/scripts/buchungen/buchungsdata2.aspx?mode=0"
+	urlDormaFlexiTime      = "%s/scripts/data3.aspx?mode=0"
+	urlAnwesenheitsTableau = "%s/scripts/ze-stellen/abtdata.aspx?mode=25"
+	urlAbwesenheitsliste   = "%s/scripts/ze-stellen/abtdata.aspx?mode=376"
 
 	// EntryTypeCome denotes an entry when entering the company.
 	EntryTypeCome EntryType = "come"
@@ -259,7 +261,7 @@ func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, time.Durat
 		return nil, 0, nil, fmt.Errorf("could not retrieve flexitime: %s", err.Error())
 	}
 
-	colleagues, err := GetColleagues(client, dormaHost, user, pass, sessionID)
+	colleagues, err := GetPresentColleagues(client, dormaHost, user, pass, sessionID)
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("could not retrieve colleagues: %s", err.Error())
 	}
@@ -429,13 +431,43 @@ func getFlexiTime(client *http.Client, dormaHost, user, pass, sessionID string) 
 
 // Colleague represents a colleague with name and status.
 type Colleague struct {
-	LoggedIn bool
-	Name     string
+	LoggedIn     bool
+	Name         string
+	InHomeOffice bool
 }
 
-// GetColleagues returns all visible colleagues and their current status from the Dorma interface.
-func GetColleagues(client *http.Client, dormaHost, user, pass, sessionID string) ([]Colleague, error) {
-	request, err := http.NewRequest("GET", fmt.Sprintf(urlCrewBoard, dormaHost), nil)
+func GetPresentColleagues(client *http.Client, dormaHost, user, pass, sessionID string) ([]Colleague, error) {
+	c1, err := getColleaguesFromAnwesenheitsTableau(client, dormaHost, user, pass, sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	c2, err := getColleaguesFromAbwesenheitsliste(client, dormaHost, user, pass, sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// iterate over colleagues from Anwesenheitstableau (c1),
+	// can't range though because we might need to modify the
+	// InHomeOffice field from inside the loop
+	for i := 0; i < len(c1); i++ {
+		a := &c1[i]
+
+		// look through colleagues on Abwesenheitsliste (c2),
+		// if a colleagues is logged in on Anwesenheitstableau but also listed
+		// on the Abwesenheitsliste, they most likely are in home office
+		for _, b := range c2 {
+			if a.LoggedIn && b == a.Name {
+				a.InHomeOffice = true
+			}
+		}
+	}
+
+	return c1, nil
+}
+
+func getColleaguesFromAnwesenheitsTableau(client *http.Client, dormaHost, user, pass, sessionID string) ([]Colleague, error) {
+	request, err := http.NewRequest("GET", fmt.Sprintf(urlAnwesenheitsTableau, dormaHost), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -465,8 +497,44 @@ func GetColleagues(client *http.Client, dormaHost, user, pass, sessionID string)
 	for _, m := range matches {
 		loggedIn := (m[1] == "00CC00")
 		name := strings.TrimSpace(m[3]) + " " + strings.TrimSpace(m[2])
-		colleagues = append(colleagues, Colleague{loggedIn, name})
+		colleagues = append(colleagues, Colleague{loggedIn, name, false})
 	}
 
 	return colleagues, nil
+}
+
+func getColleaguesFromAbwesenheitsliste(client *http.Client, dormaHost, user, pass, sessionID string) ([]string, error) {
+	request, err := http.NewRequest("GET", fmt.Sprintf(urlAbwesenheitsliste, dormaHost), nil)
+	if err != nil {
+		return nil, err
+	}
+	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionID})
+	request.SetBasicAuth(user, pass)
+
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != 200 {
+		return nil, fmt.Errorf("server returned code %d", response.StatusCode)
+	}
+
+	buffer := bytes.NewBuffer([]byte{})
+	if _, err := io.Copy(buffer, response.Body); err != nil {
+		return nil, err
+	}
+
+	body := buffer.String()
+
+	pattern := regexp.MustCompile(`<td class="td-tabelle">(.+), (.+)</td>`)
+	matches := pattern.FindAllStringSubmatch(body, -1)
+
+	var names []string
+
+	for _, m := range matches {
+		name := strings.TrimSpace(m[2]) + " " + strings.TrimSpace(m[1])
+		names = append(names, name)
+	}
+
+	return names, nil
 }

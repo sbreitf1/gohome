@@ -10,8 +10,9 @@ var (
 	ErrNoEntries = fmt.Errorf("no entries")
 	// ErrMaxTimeReached is returned when a solution would exceed the maximum working time.
 	ErrMaxTimeReached = fmt.Errorf("a maximum working time of 10 hours per day is allowed")
+	// TODO: implement this:
 	// ErrOutOfBusinessHours is returned when a solution is outside of the allowed business working hours.
-	ErrOutOfBusinessHours = fmt.Errorf("business hours are from 6:30 to 21:00")
+	//ErrOutOfBusinessHours = fmt.Errorf("business hours are from 6:30 to 21:00")
 )
 
 // Entry describes an entry for coming or leaving to a given time.
