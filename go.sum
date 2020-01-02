@@ -23,6 +23,8 @@ github.com/sbreitf1/go-console v0.0.0-20191104081911-05ee22e3cfe3 h1:MpMewsJ8aG9
 github.com/sbreitf1/go-console v0.0.0-20191104081911-05ee22e3cfe3/go.mod h1:HqLxQqrI5yzaAiD0MDmruWdN/bB5fckTm/0EYvmYkuc=
 github.com/sbreitf1/go-console v0.9.3 h1:hzuOgT0fMiKJxknSyhXqVgh7CVdGFI/8NFdT26QknzM=
 github.com/sbreitf1/go-console v0.9.3/go.mod h1:rVatKg9sS308eM9iXu0JlNns0LLJuacNBMUhis5iO+U=
+github.com/sbreitf1/go-jcrypt v0.1.0 h1:50GF7DbEe8fRQj5ALBYiLhWsKsvLpHRx2TsWUE+OSYM=
+github.com/sbreitf1/go-jcrypt v0.1.0/go.mod h1:MRBDXafctAiDBsnu3kbObbx0yL4irWP2kf0flUeS7XY=
 github.com/sbreitf1/gpgutil v0.2.1 h1:EerOh1TBURW4yYv78hOS+/s8MVAddD1vQJYNRTDXNyg=
 github.com/sbreitf1/gpgutil v0.2.1/go.mod h1:tQJ9p4LcHGn1SyX2ywcl4rQTF2o/49j4hNI72BNcYhU=
 github.com/sirupsen/logrus v1.3.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
@@ -41,6 +43,8 @@ golang.org/x/crypto v0.0.0-20191119213627-4f8c1d86b1ba/go.mod h1:LzIPMQfyMNhhGPh
 golang.org/x/crypto v0.0.0-20191122220453-ac88ee75c92c/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413 h1:ULYEB3JvPRE/IfO+9uO7vKV/xzVTO7XPAwm8xbf4w2g=
 golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
+golang.org/x/crypto v0.0.0-20191219195013-becbf705a915 h1:aJ0ex187qoXrJHPo8ZasVTASQB7llQP6YeNzgDALPRk=
+golang.org/x/crypto v0.0.0-20191219195013-becbf705a915/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
 golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=

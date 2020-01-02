@@ -2,33 +2,25 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
-	"os"
-	"os/user"
-	"path"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Azure/go-ntlmssp"
-	"github.com/sbreitf1/go-console"
-	"github.com/sbreitf1/gpgutil"
 )
 
 const (
-	//TODO http/https configurable
 	sessionCookieName      = "ASP.NET_SessionId"
-	urlDormaLogin          = "%s/scripts/login.aspx"
-	urlDormaLogout         = "%s/scripts/login.aspx?sessiontimedout=2"
-	urlDormaEntries        = "%s/scripts/buchungen/buchungsdata2.aspx?mode=0"
-	urlDormaFlexiTime      = "%s/scripts/data3.aspx?mode=0"
-	urlAnwesenheitsTableau = "%s/scripts/ze-stellen/abtdata.aspx?mode=25"
-	urlAbwesenheitsliste   = "%s/scripts/ze-stellen/abtdata.aspx?mode=376"
+	urlDormaLogin          = "/scripts/login.aspx"
+	urlDormaLogout         = "/scripts/login.aspx?sessiontimedout=2"
+	urlDormaEntries        = "/scripts/buchungen/buchungsdata2.aspx?mode=0"
+	urlDormaFlexiTime      = "/scripts/data3.aspx?mode=0"
+	urlAnwesenheitsTableau = "/scripts/ze-stellen/abtdata.aspx?mode=25"
+	urlAbwesenheitsliste   = "/scripts/ze-stellen/abtdata.aspx?mode=376"
 
 	// EntryTypeCome denotes an entry when entering the company.
 	EntryTypeCome EntryType = "come"
@@ -36,231 +28,25 @@ const (
 	EntryTypeLeave EntryType = "leave"
 )
 
-var (
-	// ConfigDir denotes the directory to store host and credential information.
-	ConfigDir string
-)
-
-func init() {
-	usr, err := user.Current()
-	if err == nil {
-		ConfigDir = path.Join(usr.HomeDir, ".dorma")
-	}
-}
-
-// GetDefaultDormaHost returns the default dorma host configured for the application or asks the user.
-func GetDefaultDormaHost(appID string) (string, error) {
-	//TODO handle empty config dir parameter
-
-	hostsFile := path.Join(ConfigDir, "app-hosts")
-	hosts, err := readAppHosts(hostsFile)
-	if err != nil {
-		return "", err
-	}
-
-	if host, ok := hosts[appID]; ok {
-		if !strings.HasPrefix(strings.ToLower(host), "http://") && !strings.HasPrefix(strings.ToLower(host), "https://") {
-			// backward-compatibility for missing protocols
-			return "https://" + host, nil
-		}
-		return host, nil
-	}
-
-	console.Printlnf("No Dorma host for app %q defined. Please enter host below:", appID)
-	console.Print("> ")
-	host, err := console.ReadLine()
-	if err != nil {
-		return "", err
-	}
-
-	// ensure protocol is appended
-	if !strings.HasPrefix(strings.ToLower(host), "http://") && !strings.HasPrefix(strings.ToLower(host), "https://") {
-		host = "https://" + host
-	}
-	// and now remove path information
-	protIndex := strings.Index(host, "://")
-	if index := strings.Index(host[protIndex+3:], "/"); index >= 0 {
-		host = host[:index+protIndex+3]
-	}
-
-	hosts[appID] = host
-	writeAppHosts(hostsFile, hosts)
-
-	return host, nil
-}
-
-func readAppHosts(file string) (map[string]string, error) {
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return make(map[string]string), nil
-		}
-		return nil, err
-	}
-
-	var hosts map[string]string
-	if err := json.Unmarshal(data, &hosts); err != nil {
-		return nil, err
-	}
-
-	return hosts, nil
-}
-
-func writeAppHosts(file string, hosts map[string]string) error {
-	if err := os.MkdirAll(path.Dir(file), os.ModePerm); err != nil {
-		return err
-	}
-
-	data, err := json.Marshal(&hosts)
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(file, data, os.ModePerm)
-}
-
-type credential struct {
-	User string `json:"user"`
-	Pass string `json:"pass"`
-}
-
-// GetCredentials returns the user credentials for a given Dorma Host by using a pre-configured environment or asking the user.
-func GetCredentials(dormaHost string) (string, string, error) {
-	//TODO handle empty config dir parameter
-
-	credentialsFile := path.Join(ConfigDir, "host-credentials")
-	credentials, err := readHostCredentials(credentialsFile)
-	if err != nil {
-		return "", "", err
-	}
-
-	if c, ok := credentials[dormaHost]; ok {
-		return c.User, c.Pass, nil
-	}
-
-	// try with missing protocol for backwards compatibility
-	if strings.HasPrefix(strings.ToLower(dormaHost), "http://") {
-		if c, ok := credentials[dormaHost[7:]]; ok {
-			return c.User, c.Pass, nil
-		}
-	}
-	if strings.HasPrefix(strings.ToLower(dormaHost), "https://") {
-		if c, ok := credentials[dormaHost[8:]]; ok {
-			return c.User, c.Pass, nil
-		}
-	}
-
-	console.Printlnf("No credentials for host %q available. Please enter below:", dormaHost)
-	console.Print("User> ")
-	user, err := console.ReadLine()
-	if err != nil {
-		return "", "", err
-	}
-
-	console.Print("Pass> ")
-	pass, err := console.ReadPassword()
-	if err != nil {
-		return "", "", err
-	}
-
-	credentials[dormaHost] = credential{User: user, Pass: pass}
-	writeHostCredentials(credentialsFile, credentials)
-
-	return user, pass, nil
-}
-
-func readHostCredentials(file string) (map[string]credential, error) {
-	var data []byte
-	var err error
-	rewriteFile := false
-	if len(*argPGPKeyName) > 0 {
-		_, gpgErr := os.Stat(file + ".gpg")
-		if gpgErr == nil {
-			key := gpgutil.MakeNamedKeySource(*argPGPKeyName, "")
-			data, err = gpgutil.DecryptFileToByteSlice(file+".gpg", key, nil)
-		} else {
-			// force encrypted re-write of unencrypted file
-			rewriteFile = true
-		}
-	} else {
-		_, gpgErr := os.Stat(file + ".gpg")
-		if !os.IsNotExist(gpgErr) {
-			return nil, fmt.Errorf("GPG key required, encrypted configuration exits")
-		}
-	}
-
-	if data == nil && err == nil {
-		data, err = ioutil.ReadFile(file)
-	}
-
-	if err != nil {
-		if os.IsNotExist(err) {
-			return make(map[string]credential), nil
-		}
-		return nil, err
-	}
-
-	var credentials map[string]credential
-	if err := json.Unmarshal(data, &credentials); err != nil {
-		return nil, err
-	}
-
-	if rewriteFile {
-		if err := writeHostCredentials(file, credentials); err != nil {
-			console.Printlnf("Failed to write credentials file %q: %s", file, err.Error())
-		} else {
-			// delete old file
-			os.Remove(file)
-		}
-	}
-
-	return credentials, nil
-}
-
-func writeHostCredentials(file string, hosts map[string]credential) error {
-	if err := os.MkdirAll(path.Dir(file), os.ModePerm); err != nil {
-		return err
-	}
-
-	data, err := json.Marshal(&hosts)
-	if err != nil {
-		return err
-	}
-
-	if len(*argPGPKeyName) > 0 {
-		key := gpgutil.MakeNamedKeySource(*argPGPKeyName, "")
-		return gpgutil.EncryptByteSliceToFile(data, file+".gpg", key, nil)
-	}
-	return ioutil.WriteFile(file, data, os.ModePerm)
-}
-
 // FetchDormaEntries returns today's entries available in "Aktuelle Buchungen" in Dorma and the current flexitime balance.
-func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, time.Duration, []Colleague, error) {
-	client := &http.Client{
-		Transport: ntlmssp.Negotiator{
-			RoundTripper: &http.Transport{},
-		},
-	}
-
-	sessionID, err := login(client, dormaHost, user, pass)
+func FetchDormaEntries(config DormaConfig) ([]Entry, time.Duration, []Colleague, error) {
+	client, err := NewDormaClient(config)
 	if err != nil {
-		return nil, 0, nil, fmt.Errorf("login failed: %s", err.Error())
+		return nil, 0, nil, err
 	}
+	defer client.Close()
 
-	// ignore errors here -> result is already available or it failed anyway
-	defer logout(client, dormaHost, user, pass, sessionID)
-
-	entries, err := getEntries(client, dormaHost, user, pass, sessionID)
+	entries, err := client.GetEntries()
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("failed to retrieve entries: %s", err.Error())
 	}
 
-	flexitime, err := getFlexiTime(client, dormaHost, user, pass, sessionID)
+	flexitime, err := client.GetFlexiTime()
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("could not retrieve flexitime: %s", err.Error())
 	}
 
-	colleagues, err := getPresentColleagues(client, dormaHost, user, pass, sessionID)
+	colleagues, err := client.GetPresentColleagues()
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("could not retrieve colleagues: %s", err.Error())
 	}
@@ -268,76 +54,65 @@ func FetchDormaEntries(dormaHost string, user, pass string) ([]Entry, time.Durat
 	return entries, flexitime, colleagues, nil
 }
 
-func login(client *http.Client, dormaHost, user, pass string) (string, error) {
-	request, err := http.NewRequest("GET", fmt.Sprintf(urlDormaLogin, dormaHost), nil)
-	if err != nil {
-		return "", err
-	}
-	request.SetBasicAuth(user, pass)
-
-	response, err := client.Do(request)
-	if err != nil {
-		return "", err
-	}
-	if response.StatusCode != 200 {
-		return "", fmt.Errorf("server returned code %d", response.StatusCode)
-	}
-
-	var sessionID string
-	for _, c := range response.Cookies() {
-		if c.Name == sessionCookieName {
-			sessionID = c.Value
-		}
-	}
-
-	if len(sessionID) == 0 {
-		return "", fmt.Errorf("missing Cookie " + sessionCookieName)
-	}
-
-	return sessionID, nil
+// DormaConfig contains config parameters for Dorma connection and login.
+type DormaConfig struct {
+	Host string `json:"host"`
+	User string `json:"user"`
+	Pass string `json:"pass" jcrypt:"aes"`
 }
 
-func logout(client *http.Client, dormaHost, user, pass, sessionID string) error {
-	request, err := http.NewRequest("GET", fmt.Sprintf(urlDormaLogout, dormaHost), nil)
-	if err != nil {
-		return err
-	}
-	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionID})
-	request.SetBasicAuth(user, pass)
+// DormaClient represents an authorized connection to Dorma.
+type DormaClient struct {
+	config     DormaConfig
+	httpClient *http.Client
+	sessionID  string
+}
 
-	response, err := client.Do(request)
-	if err != nil {
+// NewDormaClient returns a logged in DormaClient.
+func NewDormaClient(config DormaConfig) (*DormaClient, error) {
+	client := &DormaClient{
+		config: config,
+		httpClient: &http.Client{
+			Transport: ntlmssp.Negotiator{
+				RoundTripper: &http.Transport{},
+			},
+		},
+	}
+
+	if err := client.login(); err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+// Close logs out from Dorma and closes the connection.
+func (c *DormaClient) Close() error {
+	return c.logout()
+}
+
+func (c *DormaClient) login() error {
+	if _, err := c.get(urlDormaLogin); err != nil {
 		return err
 	}
-	if response.StatusCode != 200 {
-		return fmt.Errorf("server returned code %d", response.StatusCode)
+
+	if len(c.sessionID) == 0 {
+		return fmt.Errorf("missing Cookie " + sessionCookieName)
 	}
 
 	return nil
 }
 
-func getEntries(client *http.Client, dormaHost, user, pass, sessionID string) ([]Entry, error) {
-	request, err := http.NewRequest("GET", fmt.Sprintf(urlDormaEntries, dormaHost), nil)
+func (c *DormaClient) logout() error {
+	_, err := c.get(urlDormaLogout)
+	return err
+}
+
+// GetEntries returns all entries for the current day.
+func (c *DormaClient) GetEntries() ([]Entry, error) {
+	body, err := c.get(urlDormaEntries)
 	if err != nil {
 		return nil, err
 	}
-	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionID})
-	request.SetBasicAuth(user, pass)
-
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	if response.StatusCode != 200 {
-		return nil, fmt.Errorf("server returned code %d", response.StatusCode)
-	}
-
-	buffer := bytes.NewBuffer([]byte{})
-	if _, err := io.Copy(buffer, response.Body); err != nil {
-		return nil, err
-	}
-
-	body := buffer.String()
 
 	pattern := regexp.MustCompile(`<td class="td-tabelle">\s*(&nbsp;)?(\d*)\.?(\d*)\.?(\d*)\s*</td>\s*<td class="td-tabelle">\s*(\d+):(\d+)\s*</td>\s*<td class="td-tabelle">\s*([^<]+?)\s*</td>`)
 
@@ -390,28 +165,12 @@ func getEntries(client *http.Client, dormaHost, user, pass, sessionID string) ([
 	return entries, nil
 }
 
-func getFlexiTime(client *http.Client, dormaHost, user, pass, sessionID string) (time.Duration, error) {
-	request, err := http.NewRequest("GET", fmt.Sprintf(urlDormaFlexiTime, dormaHost), nil)
+// GetFlexiTime returns the current flexi time balance.
+func (c *DormaClient) GetFlexiTime() (time.Duration, error) {
+	body, err := c.get(urlDormaFlexiTime)
 	if err != nil {
 		return 0, err
 	}
-	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionID})
-	request.SetBasicAuth(user, pass)
-
-	response, err := client.Do(request)
-	if err != nil {
-		return 0, err
-	}
-	if response.StatusCode != 200 {
-		return 0, fmt.Errorf("server returned code %d", response.StatusCode)
-	}
-
-	buffer := bytes.NewBuffer([]byte{})
-	if _, err := io.Copy(buffer, response.Body); err != nil {
-		return 0, err
-	}
-
-	body := buffer.String()
 
 	pattern := regexp.MustCompile(`<input\s+type="hidden"\s+name="glz"\s+id="glz"\s+value="\s*(-?)\s*[&nbsp;]*\s*(\d+):(\d+)"\s*>`)
 	m := pattern.FindStringSubmatch(body)
@@ -435,13 +194,14 @@ type Colleague struct {
 	InHomeOffice bool
 }
 
-func getPresentColleagues(client *http.Client, dormaHost, user, pass, sessionID string) ([]Colleague, error) {
-	c1, err := getColleaguesFromAnwesenheitsTableau(client, dormaHost, user, pass, sessionID)
+// GetPresentColleagues returns the state of all currently visible colleagues.
+func (c *DormaClient) GetPresentColleagues() ([]Colleague, error) {
+	c1, err := c.getColleaguesFromAnwesenheitsTableau()
 	if err != nil {
 		return nil, err
 	}
 
-	c2, err := getColleaguesFromAbwesenheitsliste(client, dormaHost, user, pass, sessionID)
+	c2, err := c.getColleaguesFromAbwesenheitsliste()
 	if err != nil {
 		return nil, err
 	}
@@ -465,28 +225,11 @@ func getPresentColleagues(client *http.Client, dormaHost, user, pass, sessionID 
 	return c1, nil
 }
 
-func getColleaguesFromAnwesenheitsTableau(client *http.Client, dormaHost, user, pass, sessionID string) ([]Colleague, error) {
-	request, err := http.NewRequest("GET", fmt.Sprintf(urlAnwesenheitsTableau, dormaHost), nil)
+func (c *DormaClient) getColleaguesFromAnwesenheitsTableau() ([]Colleague, error) {
+	body, err := c.get(urlAnwesenheitsTableau)
 	if err != nil {
 		return nil, err
 	}
-	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionID})
-	request.SetBasicAuth(user, pass)
-
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	if response.StatusCode != 200 {
-		return nil, fmt.Errorf("server returned code %d", response.StatusCode)
-	}
-
-	buffer := bytes.NewBuffer([]byte{})
-	if _, err := io.Copy(buffer, response.Body); err != nil {
-		return nil, err
-	}
-
-	body := buffer.String()
 
 	pattern := regexp.MustCompile(`<td class="td-tabelle-fett" style="border: 1px solid #(.+); border-left: 0px;border-right: 0px;">&nbsp;&nbsp;(.+),(.+)</td>`)
 	matches := pattern.FindAllStringSubmatch(body, -1)
@@ -502,28 +245,11 @@ func getColleaguesFromAnwesenheitsTableau(client *http.Client, dormaHost, user, 
 	return colleagues, nil
 }
 
-func getColleaguesFromAbwesenheitsliste(client *http.Client, dormaHost, user, pass, sessionID string) ([]string, error) {
-	request, err := http.NewRequest("GET", fmt.Sprintf(urlAbwesenheitsliste, dormaHost), nil)
+func (c *DormaClient) getColleaguesFromAbwesenheitsliste() ([]string, error) {
+	body, err := c.get(urlAbwesenheitsliste)
 	if err != nil {
 		return nil, err
 	}
-	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionID})
-	request.SetBasicAuth(user, pass)
-
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	if response.StatusCode != 200 {
-		return nil, fmt.Errorf("server returned code %d", response.StatusCode)
-	}
-
-	buffer := bytes.NewBuffer([]byte{})
-	if _, err := io.Copy(buffer, response.Body); err != nil {
-		return nil, err
-	}
-
-	body := buffer.String()
 
 	pattern := regexp.MustCompile(`<td class="td-tabelle">(.+), (.+)</td>`)
 	matches := pattern.FindAllStringSubmatch(body, -1)
@@ -536,4 +262,36 @@ func getColleaguesFromAbwesenheitsliste(client *http.Client, dormaHost, user, pa
 	}
 
 	return names, nil
+}
+
+func (c *DormaClient) get(url string) (string, error) {
+	request, err := http.NewRequest("GET", c.config.Host+url, nil)
+	if err != nil {
+		return "", err
+	}
+	if len(c.sessionID) > 0 {
+		request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: c.sessionID})
+	}
+	request.SetBasicAuth(c.config.User, c.config.Pass)
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return "", err
+	}
+	if response.StatusCode != 200 {
+		return "", fmt.Errorf("server returned code %d", response.StatusCode)
+	}
+
+	for _, cookie := range response.Cookies() {
+		if cookie.Name == sessionCookieName {
+			c.sessionID = cookie.Value
+		}
+	}
+
+	buffer := bytes.NewBuffer([]byte{})
+	if _, err := io.Copy(buffer, response.Body); err != nil {
+		return "", err
+	}
+
+	return buffer.String(), nil
 }

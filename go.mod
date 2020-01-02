@@ -11,9 +11,9 @@ require (
 	github.com/nsf/termbox-go v0.0.0-20190817171036-93860e161317 // indirect
 	github.com/sbreitf1/errors v1.1.0 // indirect
 	github.com/sbreitf1/go-console v0.9.3
+	github.com/sbreitf1/go-jcrypt v0.1.0
 	github.com/sbreitf1/gpgutil v0.2.1
 	github.com/stretchr/testify v1.4.0
-	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413 // indirect
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect
 )

@@ -5,9 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/sbreitf1/go-console"
-
 	"github.com/alecthomas/kingpin"
+	"github.com/sbreitf1/go-console"
 )
 
 var (
@@ -16,20 +15,22 @@ var (
 	argTargetTime = appMain.Flag("target-time", "Your daily target time like '08:00'").Default("08:00").Short('t').String()
 	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
 	argColleagues = appMain.Flag("colleagues", "Show which colleagues are currently here.").Short('c').Bool()
-	argPGPKeyName = appMain.Flag("keyname", "Name/ID of GPG key to decrypt hosts-credentials file").Short('k').String()
+	argPGPKeyName = appMain.Flag("keyname", "Name/ID of GPG key to decrypt hosts-credentials file (deprecated)").Short('k').String()
+)
+
+const (
+	colorDarkGray  = "\033[1;30m"
+	colorRed       = "\033[0;31m"
+	colorGreen     = "\033[0;32m"
+	colorDarkRed   = "\033[2;31m"
+	colorDarkGreen = "\033[2;32m"
+	colorBlue      = "\033[1;34m"
+	colorWhite     = "\033[1;37m"
+	colorGray      = "\033[2;37m"
+	colorEnd       = "\033[0m"
 )
 
 var (
-	//colorLightGray      = "\033[0;37m"
-	colorDarkGray       = "\033[1;30m"
-	colorRed            = "\033[0;31m"
-	colorGreen          = "\033[0;32m"
-	colorDarkRed        = "\033[2;31m"
-	colorDarkGreen      = "\033[2;32m"
-	colorBlue           = "\033[1;34m"
-	colorWhite          = "\033[1;37m"
-	colorGray           = "\033[2;37m"
-	colorEnd            = "\033[0m"
 	colorComeEntry      = colorDarkGreen
 	colorLeaveEntry     = colorDarkRed
 	colorWorkTime       = colorWhite
@@ -43,24 +44,25 @@ var (
 func main() {
 	kingpin.MustParse(appMain.Parse(os.Args[1:]))
 
-	//TODO parameters
-	// --go-home --> only show target time reached
-
-	//disableColors()
+	if !console.SupportsColors() {
+		disableColors()
+	}
 	if err := process(); err != nil {
-		println("%s", err.Error())
+		console.Printlnf("%s", err.Error())
 		os.Exit(1)
 	}
 }
 
-// func disableColors() {
-// 	colorWorkTime = ""
-// 	colorBreakEntry = ""
-// 	colorBreakInfo = ""
-// 	colorLeaveTime = ""
-// 	colorFlexiTimePlus = ""
-// 	colorFlexiTimeMinus = ""
-// }
+func disableColors() {
+	colorComeEntry = ""
+	colorLeaveEntry = ""
+	colorWorkTime = ""
+	colorBreakEntry = ""
+	colorBreakInfo = ""
+	colorLeaveTime = ""
+	colorFlexiTimePlus = ""
+	colorFlexiTimeMinus = ""
+}
 
 func process() error {
 	targetTime := time.Duration(8) * time.Hour
@@ -73,17 +75,21 @@ func process() error {
 		//TODO check target time
 	}
 
-	dormaHost, err := GetDefaultDormaHost("gohome-app")
+	dormaConfig, err := GetDormaConfig()
 	if err != nil {
-		return fmt.Errorf("Unable to retrieve Dorma Host: %s", err.Error())
+		return fmt.Errorf("Unable to retrieve Dorma configuration: %s", err.Error())
 	}
 
-	user, pass, err := GetCredentials(dormaHost)
-	if err != nil {
-		return fmt.Errorf("Unable to retrieve Dorma Credentials: %s", err.Error())
+	if len(dormaConfig.Pass) == 0 {
+		console.Println("Please enter Dorma password (it will not be stored locally):")
+		console.Print("> ")
+		dormaConfig.Pass, err = console.ReadPassword()
+		if err != nil {
+			return fmt.Errorf("Unable to retrieve Dorma password: %s", err.Error())
+		}
 	}
 
-	entries, flexiTimeBalance, colleagues, err := FetchDormaEntries(dormaHost, user, pass)
+	entries, flexiTimeBalance, colleagues, err := FetchDormaEntries(dormaConfig)
 	if err != nil {
 		return err
 	}
@@ -91,11 +97,11 @@ func process() error {
 	if *argColleagues {
 		for _, c := range colleagues {
 			if !c.LoggedIn {
-				println("%s%s%s", colorRed, c.Name, colorEnd)
+				console.Printlnf("%s%s%s", colorRed, c.Name, colorEnd)
 			} else if c.InHomeOffice {
-				println("%s%s%s %s%s%s", colorDarkGreen, c.Name, colorEnd, colorGray, "(in home office)", colorEnd)
+				console.Printlnf("%s%s%s %s%s%s", colorDarkGreen, c.Name, colorEnd, colorGray, "(in home office)", colorEnd)
 			} else {
-				println("%s%s%s", colorGreen, c.Name, colorEnd)
+				console.Printlnf("%s%s%s", colorGreen, c.Name, colorEnd)
 			}
 		}
 
@@ -116,9 +122,9 @@ func process() error {
 
 		for _, entry := range entries {
 			if entry.Type == EntryTypeCome {
-				println(" %s--> %s%s", colorComeEntry, entry.Time.Format("15:04"), colorEnd)
+				console.Printlnf(" %s--> %s%s", colorComeEntry, entry.Time.Format("15:04"), colorEnd)
 			} else if entry.Type == EntryTypeLeave {
-				println(" %s<-- %s%s", colorLeaveEntry, entry.Time.Format("15:04"), colorEnd)
+				console.Printlnf(" %s<-- %s%s", colorLeaveEntry, entry.Time.Format("15:04"), colorEnd)
 			}
 		}
 
@@ -141,17 +147,17 @@ func process() error {
 			return err
 		}
 
-		println("-------------------------------------------")
+		console.Println("-------------------------------------------")
 		flexiTime := noSeconds(accountedWorkTime) - targetTime
-		println("worktime:            %s%s%s (%s)", colorWorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
+		console.Printlnf("worktime:            %s%s%s (%s)", colorWorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
 		if noSeconds(accountedBreakTime) != noSeconds(breakTime) {
-			println("%sbreak:               %s (taken %s)%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime), colorEnd)
+			console.Printlnf("%sbreak:               %s (taken %s)%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime), colorEnd)
 		} else {
-			println("%sbreak:               %s%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), colorEnd)
+			console.Printlnf("%sbreak:               %s%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), colorEnd)
 		}
 
 		newFlexiTimeBalance := flexiTimeBalance + flexiTime
-		println("flexi-time balance: %s -> %s", formatFlexiTime(flexiTimeBalance), formatFlexiTime(newFlexiTimeBalance))
+		console.Printlnf("flexi-time balance: %s -> %s", formatFlexiTime(flexiTimeBalance), formatFlexiTime(newFlexiTimeBalance))
 
 		t1, err := GetLeaveTime(startTime, breakTime, 6*time.Hour)
 		if err != nil {
@@ -175,12 +181,12 @@ func process() error {
 		breakTime3 := t3.Sub(startTime) - (9 * time.Hour)
 		breakTime4 := t4.Sub(startTime) - (10 * time.Hour)
 
-		println("-------------------------------------------")
-		println("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime1), colorEnd)
-		println("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime3), colorEnd)
-		println("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime4), colorEnd)
-		println("-------------------------------------------")
-		println("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colorLeaveTime, t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
+		console.Println("-------------------------------------------")
+		console.Printlnf("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime1), colorEnd)
+		console.Printlnf("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime3), colorEnd)
+		console.Printlnf("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime4), colorEnd)
+		console.Println("-------------------------------------------")
+		console.Printlnf("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colorLeaveTime, t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 	}
 
 	//TODO print warning "nicht eingestochen" in red
@@ -190,10 +196,6 @@ func process() error {
 
 func noSeconds(t time.Duration) time.Duration {
 	return time.Duration(int(t.Minutes())) * time.Minute
-}
-
-func println(format string, a ...interface{}) {
-	console.Printlnf(format, a...)
 }
 
 func formatDurationMinutes(d time.Duration) string {
