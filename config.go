@@ -137,25 +137,29 @@ func hasOldConfig() bool {
 }
 
 func importOldDormaConfig() (DormaConfig, error) {
-	host, err := getOldDormaHost("gohome-app")
+	configDir, err := getOldConfigDir()
+	if err != nil {
+		return DormaConfig{}, err
+	}
+
+	host, err := getOldDormaHost(configDir, "gohome-app")
 	if err != nil {
 		return DormaConfig{}, fmt.Errorf("failed to read old Dorma host")
 	}
 
-	user, pass, err := getOldCredentials(host)
+	user, pass, err := getOldCredentials(configDir, host)
 	if err != nil {
 		return DormaConfig{}, fmt.Errorf("failed to read old Dorma credentials")
+	}
+
+	if err := os.RemoveAll(configDir); err != nil {
+		console.Printlnf("Failed to remove old Dorma configuration in %s", configDir)
 	}
 
 	return DormaConfig{host, user, pass}, err
 }
 
-func getOldDormaHost(appID string) (string, error) {
-	configDir, err := getOldConfigDir()
-	if err != nil {
-		return "", err
-	}
-
+func getOldDormaHost(configDir, appID string) (string, error) {
 	hostsFile := path.Join(configDir, "app-hosts")
 	hosts, err := readOldAppHosts(hostsFile)
 	if err != nil {
@@ -195,12 +199,7 @@ type credential struct {
 	Pass string `json:"pass"`
 }
 
-func getOldCredentials(dormaHost string) (string, string, error) {
-	configDir, err := getOldConfigDir()
-	if err != nil {
-		return "", "", err
-	}
-
+func getOldCredentials(configDir, dormaHost string) (string, string, error) {
 	credentialsFile := path.Join(configDir, "host-credentials")
 	credentials, err := readOldHostCredentials(credentialsFile)
 	if err != nil {

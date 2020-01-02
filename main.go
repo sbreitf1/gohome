@@ -80,6 +80,10 @@ func process() error {
 		return fmt.Errorf("Unable to retrieve Dorma configuration: %s", err.Error())
 	}
 
+	if len(*argPGPKeyName) > 0 {
+		console.Println("The --keyname (short -k) option is obsolete and will be removed in the future")
+	}
+
 	if len(dormaConfig.Pass) == 0 {
 		console.Println("Please enter Dorma password (it will not be stored locally):")
 		console.Print("> ")
