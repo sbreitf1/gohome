@@ -143,7 +143,10 @@ func process() error {
 				return fmt.Errorf("Failed to parse break time: %s", err.Error())
 			}
 
-			breakTime = time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute
+			newBreakTime := time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute
+			diff := (breakTime - newBreakTime)
+			breakTime = newBreakTime
+			workTime += diff
 		}
 
 		accountedWorkTime, accountedBreakTime, err := ComputeAccountedWorkTime(workTime, breakTime)
