@@ -19,20 +19,22 @@ var (
 )
 
 const (
-	colorDarkGray  = "\033[1;30m"
-	colorRed       = "\033[0;31m"
-	colorGreen     = "\033[0;32m"
-	colorDarkRed   = "\033[2;31m"
-	colorDarkGreen = "\033[2;32m"
-	colorBlue      = "\033[1;34m"
-	colorWhite     = "\033[1;37m"
-	colorGray      = "\033[2;37m"
-	colorEnd       = "\033[0m"
+	colorDarkGray   = "\033[1;30m"
+	colorRed        = "\033[0;31m"
+	colorGreen      = "\033[0;32m"
+	colorDarkRed    = "\033[2;31m"
+	colorDarkGreen  = "\033[2;32m"
+	colorDarkOrange = "\033[2;33m"
+	colorBlue       = "\033[1;34m"
+	colorWhite      = "\033[1;37m"
+	colorGray       = "\033[2;37m"
+	colorEnd        = "\033[0m"
 )
 
 var (
 	colorComeEntry      = colorDarkGreen
 	colorLeaveEntry     = colorDarkRed
+	colorTripEntry      = colorDarkOrange
 	colorWorkTime       = colorWhite
 	colorBreakEntry     = colorGray
 	colorBreakInfo      = colorDarkGray
@@ -129,6 +131,8 @@ func process() error {
 				console.Printlnf(" %s--> %s%s", colorComeEntry, entry.Time.Format("15:04"), colorEnd)
 			} else if entry.Type == EntryTypeLeave {
 				console.Printlnf(" %s<-- %s%s", colorLeaveEntry, entry.Time.Format("15:04"), colorEnd)
+			} else if entry.Type == EntryTypeTrip {
+				console.Printlnf(" %s<-- %s DG%s", colorTripEntry, entry.Time.Format("15:04"), colorEnd)
 			}
 		}
 

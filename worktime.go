@@ -46,17 +46,39 @@ func ComputeWorkTime(entries []Entry) (time.Duration, time.Time, time.Duration, 
 		entries = append(entries, Entry{Type: EntryTypeLeave, Time: time.Now()})
 	}
 
-	workTime := time.Duration(0)
-	for i := 0; i < (len(entries) - 1); i += 2 {
-		if entries[i].Type != EntryTypeCome {
-			return 0, time.Unix(0, 0), 0, fmt.Errorf("expected come entry at index %d", i)
-		}
-		if entries[i+1].Type != EntryTypeLeave {
-			return 0, time.Unix(0, 0), 0, fmt.Errorf("expected leave entry at index %d", i+1)
-		}
+	stateNone := 0
+	stateWorking := 1
+	stateTrip := 2
+	state := stateNone
 
-		slotTime := entries[i+1].Time.Sub(entries[i].Time)
-		workTime += slotTime
+	var workTime time.Duration
+	var lastCome time.Time
+	for i := 0; i < len(entries); i++ {
+		if state == stateNone {
+			if entries[i].Type == EntryTypeCome {
+				lastCome = entries[i].Time
+				state = stateWorking
+			} else {
+				return 0, time.Unix(0, 0), 0, fmt.Errorf("1unexpected entry %q at index %d", entries[i].Type, i)
+			}
+
+		} else if state == stateWorking {
+			if entries[i].Type == EntryTypeLeave {
+				workTime += entries[i].Time.Sub(lastCome)
+				state = stateNone
+			} else if entries[i].Type == EntryTypeTrip {
+				state = stateTrip
+			} else {
+				return 0, time.Unix(0, 0), 0, fmt.Errorf("2unexpected entry %q at index %d", entries[i].Type, i)
+			}
+
+		} else if state == stateTrip {
+			if entries[i].Type == EntryTypeCome {
+				state = stateWorking
+			} else {
+				return 0, time.Unix(0, 0), 0, fmt.Errorf("3unexpected entry %q at index %d", entries[i].Type, i)
+			}
+		}
 	}
 
 	presenceTime := entries[len(entries)-1].Time.Sub(entries[0].Time)

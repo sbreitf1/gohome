@@ -26,6 +26,8 @@ const (
 	EntryTypeCome EntryType = "come"
 	// EntryTypeLeave denotes an entry when leaving the company.
 	EntryTypeLeave EntryType = "leave"
+	// EntryTypeTrip denotes an entry for a short business trip.
+	EntryTypeTrip EntryType = "trip"
 )
 
 // FetchDormaEntries returns today's entries available in "Aktuelle Buchungen" in Dorma and the current flexitime balance.
@@ -150,8 +152,13 @@ func (c *DormaClient) GetEntries() ([]Entry, error) {
 		} else if strings.Contains(strings.ToLower(typeStr), "gehen") {
 			entryType = EntryTypeLeave
 		} else if strings.Contains(strings.ToLower(typeStr), "dienstgang") {
-			// just ignore entry "DG Dienstgang" -> come and leave entries are present as normal
-			continue
+			if hour == 0 && minute == 0 {
+				// just ignore full-day entry "DE Dienstgang" -> come and leave entries are present as normal
+				continue
+
+			} else {
+				entryType = EntryTypeTrip
+			}
 		} else if strings.Contains(strings.ToLower(typeStr), "heimarbeit") {
 			// just ignore entry "HE Heimarbeit" -> come and leave entries are present as normal
 			continue
