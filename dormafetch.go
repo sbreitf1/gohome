@@ -153,14 +153,17 @@ func (c *DormaClient) GetEntries() ([]Entry, error) {
 			entryType = EntryTypeLeave
 		} else if strings.Contains(strings.ToLower(typeStr), "dienstgang") {
 			if hour == 0 && minute == 0 {
-				// just ignore full-day entry "DE Dienstgang" -> come and leave entries are present as normal
+				// just ignore full-day entry "DE Dienstgang"
 				continue
 
 			} else {
 				entryType = EntryTypeTrip
 			}
 		} else if strings.Contains(strings.ToLower(typeStr), "heimarbeit") {
-			// just ignore entry "HE Heimarbeit" -> come and leave entries are present as normal
+			// just ignore entry "HE Heimarbeit"
+			continue
+		} else if strings.Contains(strings.ToLower(typeStr), "krankheit") {
+			// just ignore entry "KO/KM Krankheit ohne/mit Krankenschein"
 			continue
 		} else {
 			return nil, fmt.Errorf("cannot parse entry type from %q", typeStr)
