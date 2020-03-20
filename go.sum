@@ -1,5 +1,6 @@
 github.com/Azure/go-ntlmssp v0.0.0-20191115210519-2b2be6cc8ed4 h1:jxtswewdgihgXM6ayHYtISwzkAOaRzyXpgUMamb8mHw=
 github.com/Azure/go-ntlmssp v0.0.0-20191115210519-2b2be6cc8ed4/go.mod h1:chxPXzSsl7ZWRAuOIE23GDNzjWuZquvFlgA8xmpunjU=
+github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
 github.com/alecthomas/kingpin v2.2.6+incompatible h1:5svnBTFgJjZvGKyYBtMB0+m5wvrbUHiqye8wRJMlnYI=
 github.com/alecthomas/kingpin v2.2.6+incompatible/go.mod h1:59OFYbFVLKQKq+mqrL6Rw5bR0c3ACQaawgXx0QYndlE=
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 h1:JYp7IbQjafoB+tBA3gMyHYHrpOtNuDiK/uB5uXxq5wM=
@@ -11,7 +12,11 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/eiannone/keyboard v0.0.0-20190314115158-7169d0afeb4f h1:UnS2RJ1y4KXbupaWRmMIkfFE9IBW//FiSCfTnHTsErI=
 github.com/eiannone/keyboard v0.0.0-20190314115158-7169d0afeb4f/go.mod h1:Xoiu5VdKMvbRgHuY7+z64lhu/7lvax/22nzASF6GrO8=
+github.com/gdamore/encoding v1.0.0/go.mod h1:alR0ol34c49FCSBLjhosxzcPHQbf2trDkoo5dl+VrEg=
+github.com/gdamore/tcell v1.3.0/go.mod h1:Hjvr+Ofd+gLglo7RYKxxnzCBmev3BzsS67MebKS4zMM=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
+github.com/lucasb-eyer/go-colorful v1.0.2/go.mod h1:0MS4r+7BZKSJ5mw4/S5MPN+qHFF1fYclkSPilDOKW0s=
+github.com/mattn/go-runewidth v0.0.4/go.mod h1:LwmH8dsx7+W8Uxz3IHJYH5QSwggIsqBzpuz5H//U1FU=
 github.com/mattn/go-runewidth v0.0.8/go.mod h1:H031xJmbD/WCDINGzjvQ9THkh0rPKHF+m2gUSrubnMI=
 github.com/nsf/termbox-go v0.0.0-20200204031403-4d2b513ad8be/go.mod h1:IuKpRQcYE1Tfu+oAQqaLisqDeXgjyyltCfsaoYN18NQ=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
@@ -21,6 +26,8 @@ github.com/sbreitf1/errors v1.1.0 h1:U5DmV7z1ZaYW7Gn/Eldt04hZAhSkwLREd/ukWZfdAJw
 github.com/sbreitf1/errors v1.1.0/go.mod h1:LPRpMKi6LkbRiZogETdCJgfQr++ckhEk6o2t7hR5uk4=
 github.com/sbreitf1/go-console v0.10.0 h1:Sy4JFLgki967G2zZ0WpN/fnjYsK6cPuEp4tErWV/I8o=
 github.com/sbreitf1/go-console v0.10.0/go.mod h1:66zhLbaR3mIPTqsNYy4bu4AhR53kWRvpYH9rYeCjaMo=
+github.com/sbreitf1/go-console v0.10.1 h1:cU459PcdqRjY7yVKy14hsgTWMb8TK5hwypGMR3pBo6U=
+github.com/sbreitf1/go-console v0.10.1/go.mod h1:sKBSTwvguzfe5FtWMYITKrFrMIH3Tib8Eu+NgRsnq6c=
 github.com/sbreitf1/go-jcrypt v0.1.0 h1:50GF7DbEe8fRQj5ALBYiLhWsKsvLpHRx2TsWUE+OSYM=
 github.com/sbreitf1/go-jcrypt v0.1.0/go.mod h1:MRBDXafctAiDBsnu3kbObbx0yL4irWP2kf0flUeS7XY=
 github.com/sbreitf1/gpgutil v0.2.1 h1:EerOh1TBURW4yYv78hOS+/s8MVAddD1vQJYNRTDXNyg=
@@ -47,6 +54,7 @@ golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3/go.mod h1:t9HGtf8HONx5eT2rtn
 golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190412213103-97732733099d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20190626150813-e07cf5db2756/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20191128015809-6d18c012aee9/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200317113312-5766fd39f98d h1:62ap6LNOjDU6uGmKXHJbSfciMoV+FeI1sRXx/pLDL44=
 golang.org/x/sys v0.0.0-20200317113312-5766fd39f98d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
