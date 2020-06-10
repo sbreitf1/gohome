@@ -162,6 +162,9 @@ func (c *DormaClient) GetEntries() ([]Entry, error) {
 		} else if strings.Contains(strings.ToLower(typeStr), "heimarbeit") {
 			// just ignore entry "HE Heimarbeit"
 			continue
+		} else if strings.Contains(strings.ToLower(typeStr), "bereitschaftsstunden") {
+			// just ignore entry "B Bereitschaftsstunden"
+			continue
 		} else if strings.Contains(strings.ToLower(typeStr), "krankheit") {
 			// just ignore entry "KO/KM Krankheit ohne/mit Krankenschein"
 			continue
