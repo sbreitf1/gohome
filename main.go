@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin"
+	"github.com/danielb42/goat"
 	"github.com/sbreitf1/go-console"
 )
 
@@ -198,6 +199,9 @@ func process() error {
 		console.Printlnf("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime4), colorEnd)
 		console.Println("-------------------------------------------")
 		console.Printlnf("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colorLeaveTime, t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
+
+		goat.ClearQueue("g")
+		goat.AddJob("notify-send -i error 'Go home!'", t2, "g")
 	}
 
 	//TODO print warning "nicht eingestochen" in red
