@@ -1,4 +1,4 @@
-module github.com/sbreitf1/gohome
+module github.com/danielb42/gohome
 
 go 1.13
 
