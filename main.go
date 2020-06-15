@@ -17,6 +17,7 @@ var (
 	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
 	argColleagues = appMain.Flag("colleagues", "Show which colleagues are currently here.").Short('c').Bool()
 	argPGPKeyName = appMain.Flag("keyname", "Name/ID of GPG key to decrypt hosts-credentials file (deprecated)").Short('k').String()
+	argReminder   = appMain.Flag("reminder", "show desktop notification on target time").Short('r').Bool()
 )
 
 const (
@@ -200,8 +201,11 @@ func process() error {
 		console.Println("-------------------------------------------")
 		console.Printlnf("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colorLeaveTime, t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 
-		goat.ClearQueue("g")
-		goat.AddJob("notify-send -i error 'Go home!'", t2, "g")
+		if *argReminder {
+			goat.ClearQueue("g")
+			goat.AddJob("notify-send -i error 'Go home!'", t2, "g")
+			goat.AddJob("notify-send -i error '10h-Limit in 15 min! GO HOME!'", t4.Add(-15*time.Minute), "g")
+		}
 	}
 
 	//TODO print warning "nicht eingestochen" in red
