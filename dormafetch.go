@@ -168,6 +168,9 @@ func (c *DormaClient) GetEntries() ([]Entry, error) {
 		} else if strings.Contains(strings.ToLower(typeStr), "krankheit") {
 			// just ignore entry "KO/KM Krankheit ohne/mit Krankenschein"
 			continue
+		} else if strings.Contains(strings.ToLower(typeStr), "gleittag") {
+			// just ignore entry "GT ganzer Gleittag"
+			continue
 		} else {
 			return nil, fmt.Errorf("cannot parse entry type from %q", typeStr)
 		}
