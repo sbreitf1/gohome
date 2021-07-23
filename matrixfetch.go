@@ -194,7 +194,6 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 		return "", err
 	}
 	c.setCookies(request)
-	//request.AddCookie(&http.Cookie{Name: "icarus_activemenuitem", Value: "menuform:mainMenu_tim_root_0,menuform:mainMenu_mss_root_3"})
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	response, err := c.httpClient.Do(request)
@@ -215,10 +214,7 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	request.Header.Set("Referer", firstURL)
 	c.setCookies(request)
-	request.AddCookie(&http.Cookie{Name: "oam.Flash.REDIRECT", Value: "true"})
-	//request.AddCookie(&http.Cookie{Name: "icarus_activemenuitem", Value: "menuform:mainMenu_tim_root_0,menuform:mainMenu_mss_root_3"})
 
 	c.lastVisitedPage = response.Header.Get("Location")
 	if matrixDebugPrint {
