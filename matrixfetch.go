@@ -18,9 +18,8 @@ const (
 	urlMatrixLogin                 = "/matrix-v3.7.3.75487/login.jspx"
 	urlMatrixMainMenu              = "/matrix-v3.7.3.75487/mainMenu.jsf"
 	urlMatrixLogout                = "TODO"
-	urlMatrixEntries               = "TODO"
 
-	matrixDebugPrint = true
+	matrixDebugPrint = false
 )
 
 // FetchMatrixEntries returns today's entries available in "Aktuelle Buchungen" in Matrix and the current flexitime balance.
@@ -57,6 +56,7 @@ type MatrixClient struct {
 	httpClient      *http.Client
 	sessionID       string
 	rendermapToken  string
+	lastVisitedPage string
 	nextUniqueToken string
 	nextViewState   string
 }
@@ -119,14 +119,49 @@ func (c *MatrixClient) logout() error {
 
 // GetEntries returns all entries for the current day.
 func (c *MatrixClient) GetEntries() ([]Entry, error) {
-	return nil, nil
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_searchWebBookingMss&menuform%3AmainMenu_mss_root_menuid=1&data-matrix-treepath=mss_root.tim_searchWebBookingMss&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
+
+	body, err := c.postRedirect(c.lastVisitedPage, requestBody)
+	if err != nil {
+		return nil, err
+	}
+
+	pattern := regexp.MustCompile(`title="(Uhrzeit \(SZ\)|Time \(ST\))" class="dateTimeMinuteValue">\s*(\d+):(\d+)\s*</span></td><td role="gridcell" class="tableColumnCenter"><span id="mainbody:editWebBooking:logTable:\d+:logTypeOfBookingTable">([^<]+)</span>`)
+
+	today := time.Now()
+
+	matches := pattern.FindAllStringSubmatch(body, -1)
+	entries := make([]Entry, 0)
+	for _, m := range matches {
+		if len(m) != 5 {
+			continue
+		}
+
+		hour, _ := strconv.Atoi(m[2])
+		minute, _ := strconv.Atoi(m[3])
+		date := time.Date(today.Year(), today.Month(), today.Day(), hour, minute, 0, 0, time.Local)
+
+		typeStr := m[4]
+		var entryType EntryType
+		if strings.Contains(strings.ToLower(typeStr), "kommen") {
+			entryType = EntryTypeCome
+		} else if strings.Contains(strings.ToLower(typeStr), "gehen") || strings.Contains(strings.ToLower(typeStr), "leave") {
+			entryType = EntryTypeLeave
+		} else {
+			return nil, fmt.Errorf("cannot parse entry type from %q", typeStr)
+		}
+
+		entries = append(entries, Entry{Time: date, Type: entryType})
+	}
+
+	return entries, nil
 }
 
 // GetFlexiTime returns the current flexi time balance.
 func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
 	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_my_monthlyOverview&menuform%3AmainMenu_mss_root_menuid=3&data-matrix-treepath=mss_root.tim_my_monthlyOverview&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
 
-	body, err := c.postRedirect(urlMatrixMainMenu, requestBody)
+	body, err := c.postRedirect(c.lastVisitedPage, requestBody)
 	if err != nil {
 		return 0, err
 	}
@@ -143,14 +178,10 @@ func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
 	}
 	hours, _ := strconv.Atoi(m[3])
 	minutes, _ := strconv.Atoi(m[4])
-
-	fmt.Println(sign, hours, minutes)
-
-	return 0, nil
+	return time.Duration(sign) * (time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute), nil
 }
 
 func (c *MatrixClient) postRedirect(url, body string) (string, error) {
-	//firstURL := c.config.Host + "/matrix-v3.7.3.75487/viewExpired.jsf"
 	firstURL := c.config.Host + url
 	request, err := http.NewRequest(http.MethodPost, firstURL, strings.NewReader(body))
 	if err != nil {
@@ -182,6 +213,11 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 	c.setCookies(request)
 	request.AddCookie(&http.Cookie{Name: "oam.Flash.REDIRECT", Value: "true"})
 	request.AddCookie(&http.Cookie{Name: "icarus_activemenuitem", Value: "menuform:mainMenu_tim_root_0,menuform:mainMenu_mss_root_3"})
+
+	c.lastVisitedPage = response.Header.Get("Location")
+	if matrixDebugPrint {
+		fmt.Println("lastVisitedPage:", c.lastVisitedPage)
+	}
 
 	response, err = c.httpClient.Do(request)
 	if err != nil {

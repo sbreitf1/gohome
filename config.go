@@ -25,11 +25,70 @@ func getConfigDir() (string, error) {
 }
 
 func GetMatrixConfig() (MatrixConfig, error) {
-	return MatrixConfig{
-		Host: "",
-		User: "",
-		Pass: "",
-	}, nil
+	configDir, err := getConfigDir()
+	if err != nil {
+		return MatrixConfig{}, err
+	}
+
+	configFile := filepath.Join(configDir, "matrix.json")
+	data, err := ioutil.ReadFile(configFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			config, err := enterMatrixConfig()
+			if err != nil {
+				return MatrixConfig{}, err
+			}
+
+			if err := os.MkdirAll(configDir, os.ModePerm); err != nil {
+				console.Printlnf("Failed to store configuration: %s", err.Error())
+			}
+			if err := jcrypt.MarshalToFile(configFile, &config, &jcrypt.Options{GetKeyHandler: jcrypt.StaticKey(key)}); err != nil {
+				console.Printlnf("Failed to store configuration: %s", err.Error())
+			}
+			return config, nil
+		}
+		return MatrixConfig{}, err
+	}
+
+	var config MatrixConfig
+	if err := jcrypt.Unmarshal(data, &config, &jcrypt.Options{GetKeyHandler: jcrypt.StaticKey(key)}); err != nil {
+		return MatrixConfig{}, err
+	}
+
+	return config, nil
+}
+
+func enterMatrixConfig() (MatrixConfig, error) {
+	console.Printlnf("Please enter your Matrix configuration below:")
+	console.Print("Host> ")
+	host, err := console.ReadLine()
+	if err != nil {
+		return MatrixConfig{}, err
+	}
+
+	// ensure protocol is appended
+	if !strings.HasPrefix(strings.ToLower(host), "http://") && !strings.HasPrefix(strings.ToLower(host), "https://") {
+		host = "https://" + host
+	}
+	// and now remove path information
+	protIndex := strings.Index(host, "://")
+	if index := strings.Index(host[protIndex+3:], "/"); index >= 0 {
+		host = host[:index+protIndex+3]
+	}
+
+	console.Print("User> ")
+	user, err := console.ReadLine()
+	if err != nil {
+		return MatrixConfig{}, err
+	}
+
+	console.Print("Pass> ")
+	pass, err := console.ReadPassword()
+	if err != nil {
+		return MatrixConfig{}, err
+	}
+
+	return MatrixConfig{host, user, pass}, nil
 }
 
 // GetDormaConfig returns host, user and password for Dorma from configuration or user input.
@@ -98,35 +157,4 @@ func enterDormaConfig() (DormaConfig, error) {
 	}
 
 	return DormaConfig{host, user, pass}, nil
-}
-
-func getOldConfigDir() (string, error) {
-	usr, err := user.Current()
-	if err != nil {
-		return "", err
-	}
-	return path.Join(usr.HomeDir, ".dorma"), nil
-}
-
-func hasOldConfig() bool {
-	configDir, err := getOldConfigDir()
-	if err != nil {
-		return false
-	}
-
-	if _, err := os.Stat(filepath.Join(configDir, "app-hosts")); err != nil {
-		return false
-	}
-
-	if _, err := os.Stat(filepath.Join(configDir, "host-credentials")); err != nil {
-		if os.IsNotExist(err) {
-			if _, err := os.Stat(filepath.Join(configDir, "host-credentials.gpg")); err != nil {
-				return false
-			}
-			return true
-		}
-		return false
-	}
-
-	return true
 }
