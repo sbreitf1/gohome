@@ -156,7 +156,6 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 		entries = append(entries, Entry{Time: date, Type: entryType})
 	}
 
-	fmt.Println(entries)
 	return entries, nil
 }
 
