@@ -15,8 +15,6 @@ var (
 	argLeaveTime  = appMain.Flag("leave", "Show statistics for a given leave time in format '15:04'").Short('l').String()
 	argTargetTime = appMain.Flag("target-time", "Your daily target time like '08:00'").Default("08:00").Short('t').String()
 	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
-	argColleagues = appMain.Flag("colleagues", "Show which colleagues are currently here.").Short('c').Bool()
-	argPGPKeyName = appMain.Flag("keyname", "Name/ID of GPG key to decrypt hosts-credentials file (deprecated)").Short('k').String()
 	argReminder   = appMain.Flag("reminder", "show desktop notification on target time").Short('r').Bool()
 )
 
@@ -79,41 +77,23 @@ func process() error {
 		//TODO check target time
 	}
 
-	dormaConfig, err := GetDormaConfig()
+	matrixConfig, err := GetMatrixConfig()
 	if err != nil {
-		return fmt.Errorf("Unable to retrieve Dorma configuration: %s", err.Error())
+		return fmt.Errorf("Unable to retrieve Matrix configuration: %s", err.Error())
 	}
 
-	if len(*argPGPKeyName) > 0 {
-		console.Println("The --keyname (short -k) option is obsolete and will be removed in the future")
-	}
-
-	if len(dormaConfig.Pass) == 0 {
-		console.Println("Please enter Dorma password (it will not be stored locally):")
+	if len(matrixConfig.Pass) == 0 {
+		console.Println("Please enter Matrix password (it will not be stored locally):")
 		console.Print("> ")
-		dormaConfig.Pass, err = console.ReadPassword()
+		matrixConfig.Pass, err = console.ReadPassword()
 		if err != nil {
-			return fmt.Errorf("Unable to retrieve Dorma password: %s", err.Error())
+			return fmt.Errorf("Unable to retrieve Matrix password: %s", err.Error())
 		}
 	}
 
-	entries, flexiTimeBalance, colleagues, err := FetchDormaEntries(dormaConfig)
+	entries, flexiTimeBalance, err := FetchMatrixEntries(matrixConfig)
 	if err != nil {
 		return err
-	}
-
-	if *argColleagues {
-		for _, c := range colleagues {
-			if !c.LoggedIn {
-				console.Printlnf("%s%s%s", colorRed, c.Name, colorEnd)
-			} else if c.InHomeOffice {
-				console.Printlnf("%s%s%s %s%s%s", colorDarkGreen, c.Name, colorEnd, colorGray, "(in home office)", colorEnd)
-			} else {
-				console.Printlnf("%s%s%s", colorGreen, c.Name, colorEnd)
-			}
-		}
-
-		return nil
 	}
 
 	if len(entries) > 0 {

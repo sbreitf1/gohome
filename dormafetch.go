@@ -14,20 +14,13 @@ import (
 )
 
 const (
-	sessionCookieName      = "ASP.NET_SessionId"
-	urlDormaLogin          = "/scripts/login.aspx"
-	urlDormaLogout         = "/scripts/login.aspx?sessiontimedout=2"
-	urlDormaEntries        = "/scripts/buchungen/buchungsdata2.aspx?mode=0"
-	urlDormaFlexiTime      = "/scripts/data3.aspx?mode=0"
-	urlAnwesenheitsTableau = "/scripts/ze-stellen/abtdata.aspx?mode=25"
-	urlAbwesenheitsliste   = "/scripts/ze-stellen/abtdata.aspx?mode=376"
-
-	// EntryTypeCome denotes an entry when entering the company.
-	EntryTypeCome EntryType = "come"
-	// EntryTypeLeave denotes an entry when leaving the company.
-	EntryTypeLeave EntryType = "leave"
-	// EntryTypeTrip denotes an entry for a short business trip.
-	EntryTypeTrip EntryType = "trip"
+	dormaSessionCookieName      = "ASP.NET_SessionId"
+	urlDormaLogin               = "/scripts/login.aspx"
+	urlDormaLogout              = "/scripts/login.aspx?sessiontimedout=2"
+	urlDormaEntries             = "/scripts/buchungen/buchungsdata2.aspx?mode=0"
+	urlDormaFlexiTime           = "/scripts/data3.aspx?mode=0"
+	urlDormaAnwesenheitsTableau = "/scripts/ze-stellen/abtdata.aspx?mode=25"
+	urlDormaAbwesenheitsliste   = "/scripts/ze-stellen/abtdata.aspx?mode=376"
 )
 
 // FetchDormaEntries returns today's entries available in "Aktuelle Buchungen" in Dorma and the current flexitime balance.
@@ -98,7 +91,7 @@ func (c *DormaClient) login() error {
 	}
 
 	if len(c.sessionID) == 0 {
-		return fmt.Errorf("missing Cookie " + sessionCookieName)
+		return fmt.Errorf("missing Cookie " + dormaSessionCookieName)
 	}
 
 	return nil
@@ -242,7 +235,7 @@ func (c *DormaClient) GetPresentColleagues() ([]Colleague, error) {
 }
 
 func (c *DormaClient) getColleaguesFromAnwesenheitsTableau() ([]Colleague, error) {
-	body, err := c.get(urlAnwesenheitsTableau)
+	body, err := c.get(urlDormaAnwesenheitsTableau)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +255,7 @@ func (c *DormaClient) getColleaguesFromAnwesenheitsTableau() ([]Colleague, error
 }
 
 func (c *DormaClient) getColleaguesFromAbwesenheitsliste() ([]string, error) {
-	body, err := c.get(urlAbwesenheitsliste)
+	body, err := c.get(urlDormaAbwesenheitsliste)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +279,7 @@ func (c *DormaClient) get(url string) (string, error) {
 		return "", err
 	}
 	if len(c.sessionID) > 0 {
-		request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: c.sessionID})
+		request.AddCookie(&http.Cookie{Name: dormaSessionCookieName, Value: c.sessionID})
 	}
 	request.SetBasicAuth(c.config.User, c.config.Pass)
 
@@ -299,7 +292,7 @@ func (c *DormaClient) get(url string) (string, error) {
 	}
 
 	for _, cookie := range response.Cookies() {
-		if cookie.Name == sessionCookieName {
+		if cookie.Name == dormaSessionCookieName {
 			c.sessionID = cookie.Value
 		}
 	}

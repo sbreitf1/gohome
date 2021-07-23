@@ -1,0 +1,252 @@
+package main
+
+import (
+	"crypto/tls"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+)
+
+const (
+	matrixSessionCookieName        = "JSESSIONID"
+	matrixRendermapTokenCookieName = "oam.Flash.RENDERMAP.TOKEN"
+	urlMatrixLogin                 = "/matrix-v3.7.3.75487/login.jspx"
+	urlMatrixMainMenu              = "/matrix-v3.7.3.75487/mainMenu.jsf"
+	urlMatrixLogout                = "TODO"
+	urlMatrixEntries               = "TODO"
+
+	matrixDebugPrint = true
+)
+
+// FetchMatrixEntries returns today's entries available in "Aktuelle Buchungen" in Matrix and the current flexitime balance.
+func FetchMatrixEntries(config MatrixConfig) ([]Entry, time.Duration, error) {
+	client, err := NewMatrixClient(config)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer client.Close()
+
+	entries, err := client.GetEntries()
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to retrieve entries: %s", err.Error())
+	}
+
+	flexitime, err := client.GetFlexiTime()
+	if err != nil {
+		return nil, 0, fmt.Errorf("could not retrieve flexitime: %s", err.Error())
+	}
+
+	return entries, flexitime, nil
+}
+
+// MatrixConfig contains config parameters for Matrix connection and login.
+type MatrixConfig struct {
+	Host string `json:"host"`
+	User string `json:"user"`
+	Pass string `json:"pass" jcrypt:"aes"`
+}
+
+// DormaClient represents an authorized connection to Matrix.
+type MatrixClient struct {
+	config          MatrixConfig
+	httpClient      *http.Client
+	sessionID       string
+	rendermapToken  string
+	nextUniqueToken string
+	nextViewState   string
+}
+
+// NewDormaClient returns a logged in DormaClient.
+func NewMatrixClient(config MatrixConfig) (*MatrixClient, error) {
+	client := &MatrixClient{
+		config: config,
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+			CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
+		},
+	}
+
+	if err := client.login(); err != nil {
+		return nil, fmt.Errorf("login failed: %s", err.Error())
+	}
+	if err := client.visitSelfService(); err != nil {
+		return nil, fmt.Errorf("visit self-service failed: %s", err.Error())
+	}
+	return client, nil
+}
+
+// Close logs out from Matrix and closes the connection.
+func (c *MatrixClient) Close() error {
+	return c.logout()
+}
+
+func (c *MatrixClient) login() error {
+	encodedUser := url.QueryEscape(c.config.User)
+	encodedPass := url.QueryEscape(c.config.Pass)
+	timeZoneName := "Europe/Berlin" //TODO dynamic
+	timeZoneOffset := "+01:00"      //TODO dynamic
+	encodedTimeZoneName := url.QueryEscape(timeZoneName)
+	encodedTimeZoneOffset := url.QueryEscape(timeZoneOffset)
+	requestBody := fmt.Sprintf("userid=%s&password=%s&systemLevel=false&timezonename=%s&timezoneoffset=%s&timezonedst=true&loginButton=Anmeldung", encodedUser, encodedPass, encodedTimeZoneName, encodedTimeZoneOffset)
+
+	if _, err := c.postRedirect(urlMatrixLogin, requestBody); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *MatrixClient) visitSelfService() error {
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&autoScroll=&agmenuform_SUBMIT=1&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=mss_root&menuIndex=4&agmenuform%3AassemblyGroupMenu=agmenuform%3AassemblyGroupMenu&data-matrix-treepath=mss_root&agmenuform%3AassemblyGroupMenu_menuid=4"
+
+	if _, err := c.postRedirect(urlMatrixMainMenu, requestBody); err != nil {
+		return nil
+	}
+	return nil
+}
+
+func (c *MatrixClient) logout() error {
+	return nil
+}
+
+// GetEntries returns all entries for the current day.
+func (c *MatrixClient) GetEntries() ([]Entry, error) {
+	return nil, nil
+}
+
+// GetFlexiTime returns the current flexi time balance.
+func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_my_monthlyOverview&menuform%3AmainMenu_mss_root_menuid=3&data-matrix-treepath=mss_root.tim_my_monthlyOverview&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
+
+	body, err := c.postRedirect(urlMatrixMainMenu, requestBody)
+	if err != nil {
+		return 0, err
+	}
+
+	pattern := regexp.MustCompile(`<td class="tableColumnRight" title="(Saldo Vortag|Balance previous day)" width="100"><span id="mainbody:editPersRecord:booking:listDynTableSum:0:contentj_id__v_20">\s*(-?)\s*[&nbsp;]*\s*(\d+):(\d+)\s*</span>`)
+	m := pattern.FindStringSubmatch(body)
+	if len(m) != 5 {
+		return 0, fmt.Errorf("unable to parse current flexi-time balance")
+	}
+
+	sign := 1
+	if m[2] == "-" {
+		sign = -1
+	}
+	hours, _ := strconv.Atoi(m[3])
+	minutes, _ := strconv.Atoi(m[4])
+
+	fmt.Println(sign, hours, minutes)
+
+	return 0, nil
+}
+
+func (c *MatrixClient) postRedirect(url, body string) (string, error) {
+	//firstURL := c.config.Host + "/matrix-v3.7.3.75487/viewExpired.jsf"
+	firstURL := c.config.Host + url
+	request, err := http.NewRequest(http.MethodPost, firstURL, strings.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	c.setCookies(request)
+	request.AddCookie(&http.Cookie{Name: "icarus_activemenuitem", Value: "menuform:mainMenu_tim_root_0,menuform:mainMenu_mss_root_3"})
+	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return "", err
+	}
+	if response.StatusCode != 302 {
+		return "", fmt.Errorf("server returned code %d when 302 was expected", response.StatusCode)
+	}
+
+	c.evalCookies(response)
+
+	if len(c.sessionID) == 0 {
+		return "", fmt.Errorf("missing Cookie " + matrixSessionCookieName)
+	}
+
+	request, err = http.NewRequest(http.MethodGet, c.config.Host+response.Header.Get("Location"), nil)
+	if err != nil {
+		return "", err
+	}
+	request.Header.Set("Referer", firstURL)
+	c.setCookies(request)
+	request.AddCookie(&http.Cookie{Name: "oam.Flash.REDIRECT", Value: "true"})
+	request.AddCookie(&http.Cookie{Name: "icarus_activemenuitem", Value: "menuform:mainMenu_tim_root_0,menuform:mainMenu_mss_root_3"})
+
+	response, err = c.httpClient.Do(request)
+	if err != nil {
+		return "", err
+	}
+	if response.StatusCode != 200 {
+		return "", fmt.Errorf("server returned code %d when 200 was expected", response.StatusCode)
+	}
+
+	buffer, err := io.ReadAll(response.Body)
+	if err != nil {
+		return "", err
+	}
+	body = string(buffer)
+
+	c.evalCookies(response)
+
+	pattern := regexp.MustCompile(`<input type="hidden" name="uniqueToken" value="([^"]*)" />`)
+	m := pattern.FindStringSubmatch(body)
+	if len(m) != 2 {
+		return "", fmt.Errorf("unable to parse unique token")
+	}
+	c.nextUniqueToken = m[1]
+	if matrixDebugPrint {
+		fmt.Println("UniqueToken:", c.nextUniqueToken)
+	}
+
+	pattern = regexp.MustCompile(`javax.faces.ViewState:\d+" value="([^"]*)"`)
+	m = pattern.FindStringSubmatch(body)
+	if len(m) != 2 {
+		return "", fmt.Errorf("unable to parse view state")
+	}
+	c.nextViewState = m[1]
+	if matrixDebugPrint {
+		fmt.Println("ViewState:", c.nextViewState)
+	}
+
+	return body, nil
+}
+
+func (c *MatrixClient) setCookies(request *http.Request) {
+	if len(c.sessionID) > 0 {
+		request.AddCookie(&http.Cookie{Name: matrixSessionCookieName, Value: c.sessionID})
+	}
+	if len(c.rendermapToken) > 0 {
+		request.AddCookie(&http.Cookie{Name: matrixRendermapTokenCookieName, Value: c.rendermapToken})
+	}
+	request.AddCookie(&http.Cookie{Name: "timezonedst", Value: "true"})
+	request.AddCookie(&http.Cookie{Name: "timezonename", Value: "Europe/Berlin"})
+	request.AddCookie(&http.Cookie{Name: "timezoneoffset", Value: "+01:00"})
+}
+
+func (c *MatrixClient) evalCookies(response *http.Response) {
+	for _, cookie := range response.Cookies() {
+		if cookie.Name == matrixSessionCookieName {
+			if matrixDebugPrint {
+				fmt.Println("SessionID:", cookie.Value)
+			}
+			c.sessionID = cookie.Value
+		}
+		if cookie.Name == matrixRendermapTokenCookieName {
+			if matrixDebugPrint {
+				fmt.Println("RendermapToken:", cookie.Value)
+			}
+			c.rendermapToken = cookie.Value
+		}
+	}
+}

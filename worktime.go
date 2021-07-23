@@ -5,6 +5,15 @@ import (
 	"time"
 )
 
+const (
+	// EntryTypeCome denotes an entry when entering the company.
+	EntryTypeCome EntryType = "come"
+	// EntryTypeLeave denotes an entry when leaving the company.
+	EntryTypeLeave EntryType = "leave"
+	// EntryTypeTrip denotes an entry for a short business trip.
+	EntryTypeTrip EntryType = "trip"
+)
+
 var (
 	// ErrNoEntries is returned when no entries are available for computation.
 	ErrNoEntries = fmt.Errorf("no entries")
