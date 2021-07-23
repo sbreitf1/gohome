@@ -56,6 +56,8 @@ type MatrixClient struct {
 	httpClient      *http.Client
 	sessionID       string
 	rendermapToken  string
+	monthOverviewID string
+	bookingID       string
 	lastVisitedPage string
 	nextUniqueToken string
 	nextViewState   string
@@ -119,7 +121,7 @@ func (c *MatrixClient) logout() error {
 
 // GetEntries returns all entries for the current day.
 func (c *MatrixClient) GetEntries() ([]Entry, error) {
-	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_searchWebBookingMss&menuform%3AmainMenu_mss_root_menuid=1&data-matrix-treepath=mss_root.tim_searchWebBookingMss&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_searchWebBookingMss&menuform%3AmainMenu_mss_root_menuid=" + c.bookingID + "&data-matrix-treepath=mss_root.tim_searchWebBookingMss&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
 
 	body, err := c.postRedirect(c.lastVisitedPage, requestBody)
 	if err != nil {
@@ -154,18 +156,23 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 		entries = append(entries, Entry{Time: date, Type: entryType})
 	}
 
+	fmt.Println(entries)
 	return entries, nil
 }
 
 // GetFlexiTime returns the current flexi time balance.
 func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
-	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_my_monthlyOverview&menuform%3AmainMenu_mss_root_menuid=3&data-matrix-treepath=mss_root.tim_my_monthlyOverview&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_my_monthlyOverview&menuform%3AmainMenu_mss_root_menuid=" + c.monthOverviewID + "&data-matrix-treepath=mss_root.tim_my_monthlyOverview&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
 
 	body, err := c.postRedirect(c.lastVisitedPage, requestBody)
 	if err != nil {
 		return 0, err
 	}
 
+	return c.parseFlexiTime(body)
+}
+
+func (c *MatrixClient) parseFlexiTime(body string) (time.Duration, error) {
 	pattern := regexp.MustCompile(`<td class="tableColumnRight" title="(Saldo Vortag|Balance previous day)" width="100"><span id="mainbody:editPersRecord:booking:listDynTableSum:0:contentj_id__v_20">\s*(-?)\s*[&nbsp;]*\s*(\d+):(\d+)\s*</span>`)
 	m := pattern.FindStringSubmatch(body)
 	if len(m) != 5 {
@@ -188,7 +195,7 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 		return "", err
 	}
 	c.setCookies(request)
-	request.AddCookie(&http.Cookie{Name: "icarus_activemenuitem", Value: "menuform:mainMenu_tim_root_0,menuform:mainMenu_mss_root_3"})
+	//request.AddCookie(&http.Cookie{Name: "icarus_activemenuitem", Value: "menuform:mainMenu_tim_root_0,menuform:mainMenu_mss_root_3"})
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	response, err := c.httpClient.Do(request)
@@ -212,7 +219,7 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 	request.Header.Set("Referer", firstURL)
 	c.setCookies(request)
 	request.AddCookie(&http.Cookie{Name: "oam.Flash.REDIRECT", Value: "true"})
-	request.AddCookie(&http.Cookie{Name: "icarus_activemenuitem", Value: "menuform:mainMenu_tim_root_0,menuform:mainMenu_mss_root_3"})
+	//request.AddCookie(&http.Cookie{Name: "icarus_activemenuitem", Value: "menuform:mainMenu_tim_root_0,menuform:mainMenu_mss_root_3"})
 
 	c.lastVisitedPage = response.Header.Get("Location")
 	if matrixDebugPrint {
@@ -253,6 +260,24 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 	c.nextViewState = m[1]
 	if matrixDebugPrint {
 		fmt.Println("ViewState:", c.nextViewState)
+	}
+
+	pattern = regexp.MustCompile(`'tim_searchWebBookingMss','menuform:mainMenu_mss_root_menuid':'(\d+)'`)
+	m = pattern.FindStringSubmatch(body)
+	if len(m) == 2 {
+		c.bookingID = m[1]
+		if matrixDebugPrint {
+			fmt.Println("BookingID:", c.bookingID)
+		}
+	}
+
+	pattern = regexp.MustCompile(`'tim_my_monthlyOverview','menuform:mainMenu_mss_root_menuid':'(\d+)'`)
+	m = pattern.FindStringSubmatch(body)
+	if len(m) == 2 {
+		c.monthOverviewID = m[1]
+		if matrixDebugPrint {
+			fmt.Println("MonthOverviewID:", c.monthOverviewID)
+		}
 	}
 
 	return body, nil
