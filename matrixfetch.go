@@ -145,7 +145,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 
 		typeStr := m[4]
 		var entryType EntryType
-		if strings.Contains(strings.ToLower(typeStr), "kommen") {
+		if strings.Contains(strings.ToLower(typeStr), "kommen") || strings.Contains(strings.ToLower(typeStr), "arrive") {
 			entryType = EntryTypeCome
 		} else if strings.Contains(strings.ToLower(typeStr), "gehen") || strings.Contains(strings.ToLower(typeStr), "leave") {
 			entryType = EntryTypeLeave
