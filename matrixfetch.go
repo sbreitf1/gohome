@@ -132,8 +132,6 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 
 	today := time.Now()
 
-	var previousDate time.Time
-
 	matches := pattern.FindAllStringSubmatch(body, -1)
 	entries := make([]Entry, 0)
 	for _, m := range matches {
@@ -151,15 +149,14 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 			entryType = EntryTypeCome
 		} else if strings.Contains(strings.ToLower(typeStr), "gehen") || strings.Contains(strings.ToLower(typeStr), "leave") {
 			entryType = EntryTypeLeave
-		} else if previousDate == date && strings.HasPrefix(typeStr, "???") {
-			// strange "???BookingType.1034.name???" entry
+		} else if strings.Contains(strings.ToLower(typeStr), "???bookingtype.1034.name???") {
+			// "???BookingType.1034.name???" wird geschrieben, wenn man am Terminal den Kontostand abfragt
 			continue
 		} else {
 			return nil, fmt.Errorf("cannot parse entry type from %q", typeStr)
 		}
 
 		entries = append(entries, Entry{Time: date, Type: entryType})
-		previousDate = date
 	}
 
 	return entries, nil
