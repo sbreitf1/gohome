@@ -71,7 +71,7 @@ func process() error {
 	if len(*argTargetTime) > 0 {
 		t, err := time.Parse("15:04", *argTargetTime)
 		if err != nil {
-			return fmt.Errorf("Failed to parse target time: %s", err.Error())
+			return fmt.Errorf("failed to parse target time: %s", err.Error())
 		}
 		targetTime = time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute
 		//TODO check target time
@@ -79,7 +79,7 @@ func process() error {
 
 	matrixConfig, err := GetMatrixConfig()
 	if err != nil {
-		return fmt.Errorf("Unable to retrieve Matrix configuration: %s", err.Error())
+		return fmt.Errorf("unable to retrieve Matrix configuration: %s", err.Error())
 	}
 
 	if len(matrixConfig.Pass) == 0 {
@@ -87,7 +87,7 @@ func process() error {
 		console.Print("> ")
 		matrixConfig.Pass, err = console.ReadPassword()
 		if err != nil {
-			return fmt.Errorf("Unable to retrieve Matrix password: %s", err.Error())
+			return fmt.Errorf("unable to retrieve Matrix password: %s", err.Error())
 		}
 	}
 
@@ -100,7 +100,7 @@ func process() error {
 		if len(*argLeaveTime) > 0 {
 			t, err := time.Parse("15:04", *argLeaveTime)
 			if err != nil {
-				return fmt.Errorf("Failed to parse lave time: %s", err.Error())
+				return fmt.Errorf("failed to parse lave time: %s", err.Error())
 			}
 			now := time.Now()
 			leaveTime := time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), 0, 0, time.Local)
@@ -126,7 +126,7 @@ func process() error {
 		if len(*argBreakTime) > 0 {
 			t, err := time.Parse("15:04", *argBreakTime)
 			if err != nil {
-				return fmt.Errorf("Failed to parse break time: %s", err.Error())
+				return fmt.Errorf("failed to parse break time: %s", err.Error())
 			}
 
 			newBreakTime := time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute

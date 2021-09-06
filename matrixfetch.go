@@ -56,7 +56,7 @@ type MatrixClient struct {
 	httpClient      *http.Client
 	sessionID       string
 	rendermapToken  string
-	monthOverviewID string
+	monthDataID     string
 	bookingID       string
 	lastVisitedPage string
 	nextUniqueToken string
@@ -164,7 +164,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 
 // GetFlexiTime returns the current flexi time balance.
 func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
-	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_my_monthlyOverview&menuform%3AmainMenu_mss_root_menuid=" + c.monthOverviewID + "&data-matrix-treepath=mss_root.tim_my_monthlyOverview&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root_menuid=" + c.monthDataID + "&data-matrix-treepath=mss_root.tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
 
 	body, err := c.postRedirect(c.lastVisitedPage, requestBody)
 	if err != nil {
@@ -175,11 +175,13 @@ func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
 }
 
 func (c *MatrixClient) parseFlexiTime(body string) (time.Duration, error) {
-	pattern := regexp.MustCompile(`<td class="tableColumnRight" title="(Saldo Vortag|Balance previous day)" width="100"><span id="mainbody:editPersRecord:booking:listDynTableSum:0:contentj_id__v_20">\s*(-?)\s*[&nbsp;]*\s*(\d+):(\d+)\s*</span>`)
-	m := pattern.FindStringSubmatch(body)
-	if len(m) != 5 {
+	pattern := regexp.MustCompile(`<td class="tableColumnRight" title="(Saldo Vortag|Balance previous day)" width="100"><span id="mainbody:editPersRecord:monthrecon:listDynTable:\d+:contentj_id__v_4">\s*(-?)\s*[&nbsp;]*\s*(\d+):(\d+)\s*</span>`)
+	matches := pattern.FindAllStringSubmatch(body, -1)
+	if len(matches) == 0 {
 		return 0, fmt.Errorf("unable to parse current flexi-time balance")
 	}
+
+	m := matches[len(matches)-1]
 
 	sign := 1
 	if m[2] == "-" {
@@ -269,12 +271,12 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 		}
 	}
 
-	pattern = regexp.MustCompile(`'tim_my_monthlyOverview','menuform:mainMenu_mss_root_menuid':'(\d+)'`)
+	pattern = regexp.MustCompile(`'tim_persMonthlyReconciliation','menuform:mainMenu_mss_root_menuid':'(\d+)'`)
 	m = pattern.FindStringSubmatch(body)
 	if len(m) == 2 {
-		c.monthOverviewID = m[1]
+		c.monthDataID = m[1]
 		if matrixDebugPrint {
-			fmt.Println("MonthOverviewID:", c.monthOverviewID)
+			fmt.Println("MonthDataID:", c.monthDataID)
 		}
 	}
 
