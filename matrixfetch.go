@@ -147,7 +147,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 		var entryType EntryType
 		if strings.Contains(strings.ToLower(typeStr), "kommen") || strings.Contains(strings.ToLower(typeStr), "arrive") || strings.Contains(strings.ToLower(typeStr), "business authorisation") {
 			entryType = EntryTypeCome
-		} else if strings.Contains(strings.ToLower(typeStr), "gehen") || strings.Contains(strings.ToLower(typeStr), "leave") || strings.Contains(strings.ToLower(typeStr), "hourly absence - end") || strings.Contains(strings.ToLower(typeStr), "system - baend") {
+		} else if strings.Contains(strings.ToLower(typeStr), "gehen") || strings.Contains(strings.ToLower(typeStr), "leave") || strings.Contains(strings.ToLower(typeStr), "hourly absence - end") || strings.Contains(strings.ToLower(typeStr), "hourly absence end")  || strings.Contains(strings.ToLower(typeStr), "system - baend") {
 			entryType = EntryTypeLeave
 		} else if strings.Contains(strings.ToLower(typeStr), "???bookingtype.1034.name???") {
 			// "???BookingType.1034.name???" wird geschrieben, wenn man am Terminal den Kontostand abfragt
