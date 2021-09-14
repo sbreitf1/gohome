@@ -100,7 +100,7 @@ func process() error {
 		if len(*argLeaveTime) > 0 {
 			t, err := time.Parse("15:04", *argLeaveTime)
 			if err != nil {
-				return fmt.Errorf("failed to parse lave time: %s", err.Error())
+				return fmt.Errorf("failed to parse leave time: %s", err.Error())
 			}
 			now := time.Now()
 			leaveTime := time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), 0, 0, time.Local)
