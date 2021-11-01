@@ -17,31 +17,7 @@ var (
 	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
 	argReminder   = appMain.Flag("reminder", "Show desktop notification on target time").Short('r').Bool()
 	argVerbose    = appMain.Flag("verbose", "Print every single step").Short('v').Bool()
-)
-
-const (
-	colorDarkGray   = "\033[1;30m"
-	colorRed        = "\033[0;31m"
-	colorGreen      = "\033[0;32m"
-	colorDarkRed    = "\033[2;31m"
-	colorDarkGreen  = "\033[2;32m"
-	colorDarkOrange = "\033[2;33m"
-	colorBlue       = "\033[1;34m"
-	colorWhite      = "\033[1;37m"
-	colorGray       = "\033[2;37m"
-	colorEnd        = "\033[0m"
-)
-
-var (
-	colorComeEntry      = colorDarkGreen
-	colorLeaveEntry     = colorDarkRed
-	colorTripEntry      = colorDarkOrange
-	colorWorkTime       = colorWhite
-	colorBreakEntry     = colorGray
-	colorBreakInfo      = colorDarkGray
-	colorLeaveTime      = colorBlue
-	colorFlexiTimePlus  = colorGreen
-	colorFlexiTimeMinus = colorRed
+	argDumpColors = appMain.Flag("dump-colors", "Populates ~/.gohome/colors.json with the current colors").Bool()
 )
 
 func verbosePrint(format string, a ...interface{}) {
@@ -53,25 +29,12 @@ func verbosePrint(format string, a ...interface{}) {
 func main() {
 	kingpin.MustParse(appMain.Parse(os.Args[1:]))
 
-	if !console.SupportsColors() {
-		verbosePrint("disable color support")
-		disableColors()
-	}
+	initColors()
+
 	if err := process(); err != nil {
 		console.Printlnf("%s", err.Error())
 		os.Exit(1)
 	}
-}
-
-func disableColors() {
-	colorComeEntry = ""
-	colorLeaveEntry = ""
-	colorWorkTime = ""
-	colorBreakEntry = ""
-	colorBreakInfo = ""
-	colorLeaveTime = ""
-	colorFlexiTimePlus = ""
-	colorFlexiTimeMinus = ""
 }
 
 func process() error {
@@ -120,11 +83,11 @@ func process() error {
 
 		for _, entry := range entries {
 			if entry.Type == EntryTypeCome {
-				console.Printlnf(" %s--> %s%s", colorComeEntry, entry.Time.Format("15:04"), colorEnd)
+				console.Printlnf(" %s--> %s%s", colors.ComeEntry, entry.Time.Format("15:04"), colorEnd)
 			} else if entry.Type == EntryTypeLeave {
-				console.Printlnf(" %s<-- %s%s", colorLeaveEntry, entry.Time.Format("15:04"), colorEnd)
+				console.Printlnf(" %s<-- %s%s", colors.LeaveEntry, entry.Time.Format("15:04"), colorEnd)
 			} else if entry.Type == EntryTypeTrip {
-				console.Printlnf(" %s<-- %s DG%s", colorTripEntry, entry.Time.Format("15:04"), colorEnd)
+				console.Printlnf(" %s<-- %s DG%s", colors.TripEntry, entry.Time.Format("15:04"), colorEnd)
 			}
 		}
 
@@ -152,11 +115,11 @@ func process() error {
 
 		console.Println("-------------------------------------------")
 		flexiTime := noSeconds(accountedWorkTime) - targetTime
-		console.Printlnf("worktime:            %s%s%s (%s)", colorWorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
+		console.Printlnf("worktime:            %s%s%s (%s)", colors.WorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
 		if noSeconds(accountedBreakTime) != noSeconds(breakTime) {
-			console.Printlnf("%sbreak:               %s (taken %s)%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime), colorEnd)
+			console.Printlnf("%sbreak:               %s (taken %s)%s", colors.BreakEntry, formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime), colorEnd)
 		} else {
-			console.Printlnf("%sbreak:               %s%s", colorBreakEntry, formatDurationMinutes(accountedBreakTime), colorEnd)
+			console.Printlnf("%sbreak:               %s%s", colors.BreakEntry, formatDurationMinutes(accountedBreakTime), colorEnd)
 		}
 
 		newFlexiTimeBalance := flexiTimeBalance + flexiTime
@@ -185,11 +148,11 @@ func process() error {
 		breakTime4 := t4.Sub(startTime) - (10 * time.Hour)
 
 		console.Println("-------------------------------------------")
-		console.Printlnf("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime1), colorEnd)
-		console.Printlnf("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime3), colorEnd)
-		console.Printlnf("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colorBreakInfo, formatDurationMinutes(breakTime4), colorEnd)
+		console.Printlnf("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime1), colorEnd)
+		console.Printlnf("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime3), colorEnd)
+		console.Printlnf("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime4), colorEnd)
 		console.Println("-------------------------------------------")
-		console.Printlnf("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colorLeaveTime, t2.Format("15:04"), colorEnd, colorBreakInfo, formatDurationMinutes(breakTime2), colorEnd)
+		console.Printlnf("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colors.LeaveTime, t2.Format("15:04"), colorEnd, colors.BreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 
 		if *argReminder {
 			goat.ClearQueue("g")
@@ -215,9 +178,9 @@ func formatDurationMinutes(d time.Duration) string {
 }
 
 func formatFlexiTime(d time.Duration) string {
-	color := colorFlexiTimePlus
+	color := colors.FlexiTimePlus
 	if d < 0 {
-		color = colorFlexiTimeMinus
+		color = colors.FlexiTimeMinus
 	}
 	return fmt.Sprintf("%s%s%s", color, formatSignedDurationMinutes(d), colorEnd)
 }
