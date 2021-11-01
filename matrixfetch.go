@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,7 +20,8 @@ const (
 	urlMatrixMainMenu              = "/matrix-v3.7.3.75487/mainMenu.jsf"
 	urlMatrixLogout                = "TODO"
 
-	matrixDebugPrint = false
+	matrixDebugPrint  = false
+	matrixOutputFiles = false
 )
 
 // FetchMatrixEntries returns today's entries available in "Aktuelle Buchungen" in Matrix and the current flexitime balance.
@@ -30,11 +32,13 @@ func FetchMatrixEntries(config MatrixConfig) ([]Entry, time.Duration, error) {
 	}
 	defer client.Close()
 
+	verbosePrint("get entries")
 	entries, err := client.GetEntries()
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to retrieve entries: %s", err.Error())
 	}
 
+	verbosePrint("get flexi time")
 	flexitime, err := client.GetFlexiTime()
 	if err != nil {
 		return nil, 0, fmt.Errorf("could not retrieve flexitime: %s", err.Error())
@@ -77,9 +81,11 @@ func NewMatrixClient(config MatrixConfig) (*MatrixClient, error) {
 		},
 	}
 
+	verbosePrint("logging in")
 	if err := client.login(); err != nil {
 		return nil, fmt.Errorf("login failed: %s", err.Error())
 	}
+	verbosePrint("visit self service page")
 	if err := client.visitSelfService(); err != nil {
 		return nil, fmt.Errorf("visit self-service failed: %s", err.Error())
 	}
@@ -127,8 +133,11 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 	if err != nil {
 		return nil, err
 	}
+	if matrixOutputFiles {
+		os.WriteFile("entries.html", []byte(body), os.ModePerm)
+	}
 
-	pattern := regexp.MustCompile(`title="(Uhrzeit \(SZ\)|Time \(ST\))" class="dateTimeMinuteValue">\s*(\d+):(\d+)\s*</span></td><td role="gridcell" class="tableColumnCenter"><span id="mainbody:editWebBooking:logTable:\d+:logTypeOfBookingTable">([^<]+)</span>`)
+	pattern := regexp.MustCompile(`title="\s*(Uhrzeit \(SZ\)|Time \(ST\)|Time)\s*"\s+class="dateTimeMinuteValue">\s*(\d+):(\d+)\s*</span></td><td role="gridcell" class="tableColumnCenter"><span id="mainbody:editWebBooking:logTable:\d+:logTypeOfBookingTable">([^<]+)</span>`)
 
 	today := time.Now()
 
@@ -151,6 +160,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 			entryType = EntryTypeLeave
 		} else if strings.Contains(strings.ToLower(typeStr), "???bookingtype.1034.name???") {
 			// "???BookingType.1034.name???" wird geschrieben, wenn man am Terminal den Kontostand abfragt
+			verbosePrint("found strange booking type: %q", typeStr)
 			continue
 		} else {
 			return nil, fmt.Errorf("cannot parse entry type from %q", typeStr)
@@ -170,12 +180,15 @@ func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
 	if err != nil {
 		return 0, err
 	}
+	if matrixOutputFiles {
+		os.WriteFile("flexitime.html", []byte(body), os.ModePerm)
+	}
 
 	return c.parseFlexiTime(body)
 }
 
 func (c *MatrixClient) parseFlexiTime(body string) (time.Duration, error) {
-	pattern := regexp.MustCompile(`<td class="tableColumnRight" title="(Saldo Vortag|Balance previous day)" width="100"><span id="mainbody:editPersRecord:monthrecon:listDynTable:\d+:contentj_id__v_4">\s*(-?)\s*[&nbsp;]*\s*(\d+):(\d+)\s*</span>`)
+	pattern := regexp.MustCompile(`<td class="tableColumnRight" title="\s*(Saldo Vortag|Balance previous day)\s*" width="100"><span id="mainbody:editPersRecord:monthrecon:listDynTable:\d+:contentj_id__v_4">\s*(-?)\s*[&nbsp;]*\s*(\d+):(\d+)\s*</span>`)
 	matches := pattern.FindAllStringSubmatch(body, -1)
 	if len(matches) == 0 {
 		return 0, fmt.Errorf("unable to parse current flexi-time balance")

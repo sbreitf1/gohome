@@ -15,7 +15,8 @@ var (
 	argLeaveTime  = appMain.Flag("leave", "Show statistics for a given leave time in format '15:04'").Short('l').String()
 	argTargetTime = appMain.Flag("target-time", "Your daily target time like '08:00'").Default("08:00").Short('t').String()
 	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
-	argReminder   = appMain.Flag("reminder", "show desktop notification on target time").Short('r').Bool()
+	argReminder   = appMain.Flag("reminder", "Show desktop notification on target time").Short('r').Bool()
+	argVerbose    = appMain.Flag("verbose", "Print every single step").Short('v').Bool()
 )
 
 const (
@@ -43,10 +44,17 @@ var (
 	colorFlexiTimeMinus = colorRed
 )
 
+func verbosePrint(format string, a ...interface{}) {
+	if *argVerbose {
+		console.Printlnf("[DEBUG] "+format, a...)
+	}
+}
+
 func main() {
 	kingpin.MustParse(appMain.Parse(os.Args[1:]))
 
 	if !console.SupportsColors() {
+		verbosePrint("disable color support")
 		disableColors()
 	}
 	if err := process(); err != nil {
@@ -91,11 +99,13 @@ func process() error {
 		}
 	}
 
+	verbosePrint("fetch matrix entries")
 	entries, flexiTimeBalance, err := FetchMatrixEntries(matrixConfig)
 	if err != nil {
 		return err
 	}
 
+	verbosePrint("entry count: %d", len(entries))
 	if len(entries) > 0 {
 		if len(*argLeaveTime) > 0 {
 			t, err := time.Parse("15:04", *argLeaveTime)
