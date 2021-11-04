@@ -162,6 +162,9 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 			// "???BookingType.1034.name???" wird geschrieben, wenn man am Terminal den Kontostand abfragt
 			verbosePrint("found strange booking type: %q", typeStr)
 			continue
+		} else if strings.Contains(strings.ToLower(typeStr), "valid until") {
+			verbosePrint("found strange booking type: %q", typeStr)
+			continue
 		} else {
 			return nil, fmt.Errorf("cannot parse entry type from %q", typeStr)
 		}
