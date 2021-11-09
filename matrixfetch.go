@@ -16,12 +16,15 @@ import (
 const (
 	matrixSessionCookieName        = "JSESSIONID"
 	matrixRendermapTokenCookieName = "oam.Flash.RENDERMAP.TOKEN"
-	urlMatrixLogin                 = "/matrix-v3.7.3.75487/login.jspx"
-	urlMatrixMainMenu              = "/matrix-v3.7.3.75487/mainMenu.jsf"
-	urlMatrixLogout                = "TODO"
+	urlMatrixLogin                 = "/login.jspx"
+	urlMatrixMainMenu              = "/mainMenu.jsf"
 
 	matrixDebugPrint  = false
 	matrixOutputFiles = false
+)
+
+var (
+	matrixVersionURL = "/matrix"
 )
 
 // FetchMatrixEntries returns today's entries available in "Aktuelle Buchungen" in Matrix and the current flexitime balance.
@@ -106,8 +109,29 @@ func (c *MatrixClient) login() error {
 	encodedTimeZoneOffset := url.QueryEscape(timeZoneOffset)
 	requestBody := fmt.Sprintf("userid=%s&password=%s&systemLevel=false&timezonename=%s&timezoneoffset=%s&timezonedst=true&loginButton=Anmeldung", encodedUser, encodedPass, encodedTimeZoneName, encodedTimeZoneOffset)
 
-	if _, err := c.postRedirect(urlMatrixLogin, requestBody); err != nil {
+	if err := c.detectRedirectURI(); err != nil {
 		return err
+	}
+
+	if _, err := c.postRedirect(matrixVersionURL+urlMatrixLogin, requestBody); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *MatrixClient) detectRedirectURI() error {
+	resp, err := c.httpClient.Get(c.config.Host + matrixVersionURL + urlMatrixLogin)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode == 302 {
+		parts := strings.Split(resp.Header.Get("Location"), "/")
+		if len(parts) != 3 {
+			return fmt.Errorf("unexpected redirect url for login: %s", resp.Header.Get("Location"))
+		}
+		matrixVersionURL = "/" + parts[1]
+		verbosePrint("detected matrix url %q", matrixVersionURL)
 	}
 	return nil
 }
@@ -115,7 +139,7 @@ func (c *MatrixClient) login() error {
 func (c *MatrixClient) visitSelfService() error {
 	requestBody := "uniqueToken=" + c.nextUniqueToken + "&autoScroll=&agmenuform_SUBMIT=1&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=mss_root&menuIndex=4&agmenuform%3AassemblyGroupMenu=agmenuform%3AassemblyGroupMenu&data-matrix-treepath=mss_root&agmenuform%3AassemblyGroupMenu_menuid=4"
 
-	if _, err := c.postRedirect(urlMatrixMainMenu, requestBody); err != nil {
+	if _, err := c.postRedirect(matrixVersionURL+urlMatrixMainMenu, requestBody); err != nil {
 		return nil
 	}
 	return nil
