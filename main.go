@@ -18,6 +18,7 @@ var (
 	argReminder   = appMain.Flag("reminder", "Show desktop notification on target time").Short('r').Bool()
 	argVerbose    = appMain.Flag("verbose", "Print every single step").Short('v').Bool()
 	argDumpColors = appMain.Flag("dump-colors", "Populates ~/.gohome/colors.json with the current colors").Bool()
+	currentState  EntryType
 )
 
 func verbosePrint(format string, a ...interface{}) {
@@ -34,6 +35,10 @@ func main() {
 	if err := process(); err != nil {
 		console.Printlnf("%s", err.Error())
 		os.Exit(1)
+	}
+
+	if currentState != EntryTypeCome {
+		os.Exit(2)
 	}
 }
 
@@ -89,6 +94,8 @@ func process() error {
 			} else if entry.Type == EntryTypeTrip {
 				console.Printlnf(" %s<-- %s DG%s", colors.TripEntry, entry.Time.Format("15:04"), colorEnd)
 			}
+
+			currentState = entry.Type
 		}
 
 		workTime, startTime, breakTime, err := ComputeWorkTime(entries)
