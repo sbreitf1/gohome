@@ -120,7 +120,7 @@ func (c *MatrixClient) login() error {
 }
 
 func (c *MatrixClient) detectRedirectURI() error {
-	resp, err := c.httpClient.Get(c.config.Host + matrixVersionURL + urlMatrixLogin)
+	resp, err := c.httpClient.Get(c.absoluteURL(matrixVersionURL + urlMatrixLogin))
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 		var entryType EntryType
 		if strings.Contains(strings.ToLower(typeStr), "kommen") || strings.Contains(strings.ToLower(typeStr), "arrive") || strings.Contains(strings.ToLower(typeStr), "business authorisation") {
 			entryType = EntryTypeCome
-		} else if strings.Contains(strings.ToLower(typeStr), "gehen") || strings.Contains(strings.ToLower(typeStr), "leave") || strings.Contains(strings.ToLower(typeStr), "hourly absence - end") || strings.Contains(strings.ToLower(typeStr), "hourly absence end")  || strings.Contains(strings.ToLower(typeStr), "system - baend") {
+		} else if strings.Contains(strings.ToLower(typeStr), "gehen") || strings.Contains(strings.ToLower(typeStr), "leave") || strings.Contains(strings.ToLower(typeStr), "hourly absence - end") || strings.Contains(strings.ToLower(typeStr), "hourly absence end") || strings.Contains(strings.ToLower(typeStr), "system - baend") {
 			entryType = EntryTypeLeave
 		} else if strings.Contains(strings.ToLower(typeStr), "???bookingtype.1034.name???") {
 			// "???BookingType.1034.name???" wird geschrieben, wenn man am Terminal den Kontostand abfragt
@@ -232,8 +232,12 @@ func (c *MatrixClient) parseFlexiTime(body string) (time.Duration, error) {
 	return time.Duration(sign) * (time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute), nil
 }
 
+func (c *MatrixClient) absoluteURL(url string) string {
+	return strings.TrimRight(c.config.Host, "/") + "/" + strings.TrimLeft(url, "/")
+}
+
 func (c *MatrixClient) postRedirect(url, body string) (string, error) {
-	firstURL := c.config.Host + url
+	firstURL := c.absoluteURL(url)
 	request, err := http.NewRequest(http.MethodPost, firstURL, strings.NewReader(body))
 	if err != nil {
 		return "", err
@@ -255,7 +259,7 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 		return "", fmt.Errorf("missing Cookie " + matrixSessionCookieName)
 	}
 
-	request, err = http.NewRequest(http.MethodGet, c.config.Host+response.Header.Get("Location"), nil)
+	request, err = http.NewRequest(http.MethodGet, c.absoluteURL(response.Header.Get("Location")), nil)
 	if err != nil {
 		return "", err
 	}
