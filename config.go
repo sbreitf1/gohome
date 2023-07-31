@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/adrg/xdg"
 	"github.com/sbreitf1/go-console"
 	"github.com/sbreitf1/go-jcrypt"
 )
@@ -21,7 +23,17 @@ func getConfigDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return path.Join(usr.HomeDir, ".gohome"), nil
+	oldPath := path.Join(usr.HomeDir, ".gohome")
+	newPath := path.Join(xdg.StateHome, "gohome")
+
+	if _, err := os.Stat(oldPath); !os.IsNotExist(err) {
+		fmt.Println("You need to move your config file to the new location. Please run:")
+		fmt.Printf("mkdir -p %s && mv %s %s\n", xdg.StateHome, oldPath, newPath)
+		os.Exit(1)
+	}
+
+	return newPath, nil
+
 }
 
 func GetMatrixConfig() (MatrixConfig, error) {

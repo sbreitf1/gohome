@@ -3,6 +3,7 @@ module github.com/sbreitf1/gohome
 go 1.19
 
 require (
+	github.com/adrg/xdg v0.4.0
 	github.com/alecthomas/kingpin v2.2.6+incompatible
 	github.com/danielb42/goat v1.0.1
 	github.com/sbreitf1/go-console v0.12.0
