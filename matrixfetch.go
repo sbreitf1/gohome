@@ -176,6 +176,11 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 		minute, _ := strconv.Atoi(m[3])
 		date := time.Date(today.Year(), today.Month(), today.Day(), hour, minute, 0, 0, time.Local)
 
+		if hour == 0 && minute == 0 {
+			verbosePrint("ignore booking %q at 00:00", m[4])
+			continue
+		}
+
 		typeStr := m[4]
 		var entryType EntryType
 		if strings.Contains(strings.ToLower(typeStr), "kommen") || strings.Contains(strings.ToLower(typeStr), "arrive") || strings.Contains(strings.ToLower(typeStr), "business authorisation") {
