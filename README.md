@@ -9,7 +9,7 @@ Util to show current worktime and possible leave times with Dorma integration.
 To download and install the utility execute the following commands:
 
 ```
-go install github.com/sbreitf1/gohome@v1.0.0
+go install github.com/sbreitf1/gohome@v1.0.1
 ```
 
 Now start it with `gohome` from command line.
