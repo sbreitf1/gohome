@@ -1,13 +1,13 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
 	"path/filepath"
 	"strings"
 
+	"github.com/adrg/xdg"
 	"github.com/sbreitf1/go-console"
 	"github.com/sbreitf1/go-jcrypt"
 )
@@ -16,7 +16,72 @@ var (
 	key = []byte{42, 13, 37}
 )
 
-func getConfigDir() (string, error) {
+type configSources struct {
+	XDGDir  string
+	HomeDir string
+}
+
+func (confSrc configSources) IsZero() bool {
+	return len(confSrc.XDGDir) == 0 && len(confSrc.HomeDir) == 0
+}
+
+func getAvailableConfigDirs() configSources {
+	var confSrc configSources
+
+	xdgConfigDir := getXDGConfigDir()
+	xdgConfigFile := filepath.Join(xdgConfigDir, "matrix.json")
+	if _, err := os.Stat(xdgConfigFile); err == nil {
+		// file exists and can be accessed => nothing to do
+		confSrc.XDGDir = xdgConfigDir
+	}
+
+	if homeConfigDir, err := getHomeConfigDir(); err == nil {
+		homeConfigFile := filepath.Join(homeConfigDir, "matrix.json")
+		if _, err := os.Stat(homeConfigFile); err == nil {
+			// file exists and can be accessed => nothing to do
+			confSrc.HomeDir = homeConfigDir
+		}
+	}
+
+	return confSrc
+}
+
+func migrateOldConfig() error {
+	confSrc := getAvailableConfigDirs()
+	if confSrc.IsZero() {
+		// nothing to migrate
+		return nil
+	}
+	if len(confSrc.XDGDir) > 0 {
+		// config already present at correct location
+		return nil
+	}
+
+	dstDir := getXDGConfigDir()
+
+	// need to migrate
+	if err := os.MkdirAll(dstDir, os.ModePerm); err != nil {
+		return err
+	}
+
+	rawData, err := os.ReadFile(filepath.Join(confSrc.HomeDir, "matrix.json"))
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(filepath.Join(dstDir, "matrix.json"), rawData, os.ModePerm); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(confSrc.HomeDir); err != nil {
+		return err
+	}
+
+	console.Printlnf("config migrated to %s", dstDir)
+	return nil
+}
+
+func getHomeConfigDir() (string, error) {
 	usr, err := user.Current()
 	if err != nil {
 		return "", err
@@ -24,14 +89,37 @@ func getConfigDir() (string, error) {
 	return path.Join(usr.HomeDir, ".gohome"), nil
 }
 
+func getXDGConfigDir() string {
+	return path.Join(xdg.ConfigHome, "gohome")
+}
+
+func getConfigDir() (string, error) {
+	confSrc := getAvailableConfigDirs()
+	if confSrc.IsZero() {
+		// prefer xdg dir for new config
+		return getXDGConfigDir(), nil
+	}
+
+	if len(confSrc.XDGDir) > 0 {
+		// prefer config from xdg dir
+		return confSrc.XDGDir, nil
+	}
+	// fall back to old config location
+	return confSrc.HomeDir, nil
+}
+
 func GetMatrixConfig() (MatrixConfig, error) {
+	if err := migrateOldConfig(); err != nil {
+		console.Printlnf("failed to migrate config: %s", err.Error())
+	}
+
 	configDir, err := getConfigDir()
 	if err != nil {
 		return MatrixConfig{}, err
 	}
 
 	configFile := filepath.Join(configDir, "matrix.json")
-	data, err := ioutil.ReadFile(configFile)
+	data, err := os.ReadFile(configFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			config, err := enterMatrixConfig()
