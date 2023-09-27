@@ -121,6 +121,7 @@ func process() error {
 		}
 
 		console.Println("-------------------------------------------")
+		console.Printlnf("time now:            %s", time.Now().Format("15:04"))
 		flexiTime := noSeconds(accountedWorkTime) - targetTime
 		console.Printlnf("worktime:            %s%s%s (%s)", colors.WorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
 		if noSeconds(accountedBreakTime) != noSeconds(breakTime) {
