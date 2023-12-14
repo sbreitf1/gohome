@@ -254,8 +254,8 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if response.StatusCode != 302 {
-		return "", fmt.Errorf("server returned code %d when 302 was expected", response.StatusCode)
+	if (response.StatusCode < 300) || (399 < response.StatusCode) {
+		return "", fmt.Errorf("server returned code %d when 3xx was expected", response.StatusCode)
 	}
 
 	c.evalCookies(response)
