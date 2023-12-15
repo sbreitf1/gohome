@@ -26,3 +26,4 @@ Old configs in `~/.gohome` will be automatically migrated.
 
 - Thanks to [danielb42](https://github.com/danielb42) for the [initial idea and cool project name](https://github.com/danielb42/gohome)
 - Thanks to [fleaz](https://github.com/fleaz) for suggesting XDG config
+- Thanks to [Nerzal](https://github.com/Nerzal) for Matrix v4.2.2 Support
