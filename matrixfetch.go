@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/beevik/etree"
 )
 
 const (
@@ -125,7 +127,7 @@ func (c *MatrixClient) detectRedirectURI() error {
 		return err
 	}
 
-	if resp.StatusCode == 302 {
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
 		parts := strings.Split(resp.Header.Get("Location"), "/")
 		if len(parts) != 3 {
 			return fmt.Errorf("unexpected redirect url for login: %s", resp.Header.Get("Location"))
@@ -133,11 +135,12 @@ func (c *MatrixClient) detectRedirectURI() error {
 		matrixVersionURL = "/" + parts[1]
 		verbosePrint("detected matrix url %q", matrixVersionURL)
 	}
+
 	return nil
 }
 
 func (c *MatrixClient) visitSelfService() error {
-	requestBody := "uniqueToken=" + c.nextUniqueToken + "&autoScroll=&agmenuform_SUBMIT=1&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=mss_root&menuIndex=4&agmenuform%3AassemblyGroupMenu=agmenuform%3AassemblyGroupMenu&data-matrix-treepath=mss_root&agmenuform%3AassemblyGroupMenu_menuid=4"
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&autoScroll=&agmenuform_SUBMIT=1&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=mss_root&menuIndex=4&agmenuform%3AassemblyGroupMenu=agmenuform%3AassemblyGroupMenu&data-matrix-treepath=mss_root&agmenuform%3AassemblyGroupMenu_menuid=_c3d3c76c-a976-4d74-a147-db02d56ddb08|4"
 
 	if _, err := c.postRedirect(matrixVersionURL+urlMatrixMainMenu, requestBody); err != nil {
 		return nil
@@ -161,19 +164,28 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 		os.WriteFile("entries.html", []byte(body), os.ModePerm)
 	}
 
-	pattern := regexp.MustCompile(`title="\s*(Uhrzeit \(SZ\)|Time \(ST\)|Time)\s*"\s+class="dateTimeMinuteValue">\s*(\d+):(\d+)\s*</span></td><td role="gridcell" class="tableColumnCenter"><span id="mainbody:editWebBooking:logTable:\d+:logTypeOfBookingTable">([^<]+)</span>`)
+	doc := etree.NewDocument()
+	doc.ReadFromString(body)
+
+	tableData := doc.FindElement("//*[@id='mainbody:editWebBooking:logTable_data']")
+	tableRows := tableData.FindElements("//tr[@data-ri]")
 
 	today := time.Now()
 
-	matches := pattern.FindAllStringSubmatch(body, -1)
+	timeStampRegex := regexp.MustCompile(`\s*(\d+):(\d+)\s*`)
+
 	entries := make([]Entry, 0)
-	for _, m := range matches {
-		if len(m) != 5 {
-			continue
+	for _, row := range tableRows {
+		timeSpan := row.ChildElements()[0].ChildElements()[0]
+		if timeSpan == nil {
+			return nil, fmt.Errorf("could not find time span")
 		}
 
-		hour, _ := strconv.Atoi(m[2])
-		minute, _ := strconv.Atoi(m[3])
+		timeStamp := timeSpan.Text()
+		m := timeStampRegex.FindStringSubmatch(timeStamp)
+
+		hour, _ := strconv.Atoi(m[1])
+		minute, _ := strconv.Atoi(m[2])
 		date := time.Date(today.Year(), today.Month(), today.Day(), hour, minute, 0, 0, time.Local)
 
 		if hour == 0 && minute == 0 {
@@ -181,17 +193,27 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 			continue
 		}
 
-		typeStr := m[4]
+		typeStr := row.ChildElements()[1].ChildElements()[0].Text()
+		typeStr = strings.ToLower(typeStr)
 		var entryType EntryType
-		if strings.Contains(strings.ToLower(typeStr), "kommen") || strings.Contains(strings.ToLower(typeStr), "arrive") || strings.Contains(strings.ToLower(typeStr), "business authorisation") {
+		if strings.Contains(typeStr, "kommen") ||
+			strings.Contains(typeStr, "arrive") ||
+			strings.Contains(typeStr, "business authorisation") {
 			entryType = EntryTypeCome
-		} else if strings.Contains(strings.ToLower(typeStr), "gehen") || strings.Contains(strings.ToLower(typeStr), "leave") || strings.Contains(strings.ToLower(typeStr), "hourly absence - end") || strings.Contains(strings.ToLower(typeStr), "hourly absence end") || strings.Contains(strings.ToLower(typeStr), "system - baend") {
+		} else if strings.Contains(typeStr, "gehen") ||
+			strings.Contains(typeStr, "leave") ||
+			strings.Contains(typeStr, "hourly absence - end") ||
+			strings.Contains(typeStr, "hourly absence end") ||
+			strings.Contains(typeStr, "system - baend") {
+			if strings.Contains(typeStr, "sequence error") {
+				continue
+			}
 			entryType = EntryTypeLeave
-		} else if strings.Contains(strings.ToLower(typeStr), "???bookingtype.1034.name???") {
+		} else if strings.Contains(typeStr, "???bookingtype.1034.name???") {
 			// "???BookingType.1034.name???" wird geschrieben, wenn man am Terminal den Kontostand abfragt
 			verbosePrint("found strange booking type: %q", typeStr)
 			continue
-		} else if strings.Contains(strings.ToLower(typeStr), "valid until") {
+		} else if strings.Contains(typeStr, "valid until") {
 			verbosePrint("found strange booking type: %q", typeStr)
 			continue
 		} else {
@@ -254,8 +276,8 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if response.StatusCode != 302 {
-		return "", fmt.Errorf("server returned code %d when 302 was expected", response.StatusCode)
+	if (response.StatusCode < 300) || (399 < response.StatusCode) {
+		return "", fmt.Errorf("server returned code %d when 3xx was expected", response.StatusCode)
 	}
 
 	c.evalCookies(response)
