@@ -61,16 +61,15 @@ type MatrixConfig struct {
 
 // DormaClient represents an authorized connection to Matrix.
 type MatrixClient struct {
-	config           MatrixConfig
-	httpClient       *http.Client
-	sessionID        string
-	rendermapToken   string
-	monthDataID      string
-	bookingID        string
-	lastVisitedPage  string
-	nextUniqueToken  string
-	nextViewState    string
-	jSessionIDCookie string
+	config          MatrixConfig
+	httpClient      *http.Client
+	sessionID       string
+	rendermapToken  string
+	monthDataID     string
+	bookingID       string
+	lastVisitedPage string
+	nextUniqueToken string
+	nextViewState   string
 }
 
 // NewDormaClient returns a logged in DormaClient.
@@ -135,12 +134,6 @@ func (c *MatrixClient) detectRedirectURI() error {
 		}
 		matrixVersionURL = "/" + parts[1]
 		verbosePrint("detected matrix url %q", matrixVersionURL)
-	}
-
-	for _, cookie := range resp.Cookies() {
-		if cookie.Name == "JESSIONID" {
-			c.jSessionIDCookie = cookie.Value
-		}
 	}
 
 	return nil
