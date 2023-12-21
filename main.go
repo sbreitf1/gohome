@@ -163,9 +163,15 @@ func process() error {
 		console.Printlnf("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colors.LeaveTime, t2.Format("15:04"), colorEnd, colors.BreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 
 		if *argReminder {
-			goat.ClearQueue("g")
-			goat.AddJob("notify-send -i error 'Go home!'", t2, "g")
-			goat.AddJob("notify-send -i error '10h-Limit in 15 min! GO HOME!'", t4.Add(-15*time.Minute), "g")
+			if err := goat.ClearQueue("g"); err != nil {
+				return fmt.Errorf("clear job queue: %s", err.Error())
+			}
+			if _, err := goat.AddJob("notify-send -i error 'Go home!'", t2, "g"); err != nil {
+				return fmt.Errorf("add gohome job: %s", err.Error())
+			}
+			if _, err := goat.AddJob("notify-send -i error '10h-Limit in 15 min! GO HOME!'", t4.Add(-15*time.Minute), "g"); err != nil {
+				return fmt.Errorf("add 10h warning job: %s", err.Error())
+			}
 		}
 	}
 

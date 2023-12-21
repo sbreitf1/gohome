@@ -161,11 +161,15 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 		return nil, err
 	}
 	if matrixOutputFiles {
-		os.WriteFile("entries.html", []byte(body), os.ModePerm)
+		if err := os.WriteFile("entries.html", []byte(body), os.ModePerm); err != nil {
+			return nil, fmt.Errorf("output entries file: %s", err.Error())
+		}
 	}
 
 	doc := etree.NewDocument()
-	doc.ReadFromString(body)
+	if err := doc.ReadFromString(body); err != nil {
+		return nil, fmt.Errorf("read xml string element: %s", err.Error())
+	}
 
 	tableData := doc.FindElement("//*[@id='mainbody:editWebBooking:logTable_data']")
 	tableRows := tableData.FindElements("//tr[@data-ri]")
@@ -235,7 +239,9 @@ func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
 		return 0, err
 	}
 	if matrixOutputFiles {
-		os.WriteFile("flexitime.html", []byte(body), os.ModePerm)
+		if err := os.WriteFile("flexitime.html", []byte(body), os.ModePerm); err != nil {
+			return 0, fmt.Errorf("output flexitime file: %s", err.Error())
+		}
 	}
 
 	return c.parseFlexiTime(body)
@@ -284,6 +290,11 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 
 	if len(c.sessionID) == 0 {
 		return "", fmt.Errorf("missing Cookie " + matrixSessionCookieName)
+	}
+
+	if response.Header.Get("Location") == "favoritePage.jsf" {
+		// this happens when a custom start page is selected. force redirect to main menu instead
+		response.Header.Set("Location", matrixVersionURL+urlMatrixMainMenu)
 	}
 
 	request, err = http.NewRequest(http.MethodGet, c.absoluteURL(response.Header.Get("Location")), nil)
