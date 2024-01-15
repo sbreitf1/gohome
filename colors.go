@@ -67,11 +67,7 @@ func setDefaultColors() {
 
 func readColors() {
 	setDefaultColors()
-	dir, err := getConfigDir()
-	if err != nil {
-		console.Printlnf("failed to retrieve config dir")
-		return
-	}
+	dir := getConfigDir()
 	data, err := os.ReadFile(filepath.Join(dir, "colors.json"))
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -94,19 +90,18 @@ func dumpColors() {
 		console.Printlnf("failed to marshal colors to json")
 		return
 	}
-	dir, err := getConfigDir()
-	if err != nil {
-		console.Printlnf("failed to retrieve config dir")
-		return
-	}
+	dir := getConfigDir()
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		console.Printlnf("failed to create config dir: %s", err.Error())
 		return
 	}
-	if err := os.WriteFile(filepath.Join(dir, "colors.json"), data, os.ModePerm); err != nil {
+	outputFilePath := filepath.Join(dir, "colors.json")
+	if err := os.WriteFile(outputFilePath, data, os.ModePerm); err != nil {
 		console.Printlnf("failed to create config dir: %s", err.Error())
 		return
 	}
+
+	console.Printlnf("wrote colors to %s", outputFilePath)
 }
 
 func shortenColors(colors colorsDef) colorsDef {

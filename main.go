@@ -17,7 +17,7 @@ var (
 	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
 	argReminder   = appMain.Flag("reminder", "Show desktop notification on target time").Short('r').Bool()
 	argVerbose    = appMain.Flag("verbose", "Print every single step").Short('v').Bool()
-	argDumpColors = appMain.Flag("dump-colors", "Populates ~/.gohome/colors.json with the current colors").Bool()
+	argDumpColors = appMain.Flag("dump-colors", fmt.Sprintf("Populates %s/colors.json with the current colors", getConfigDir())).Bool()
 	currentState  EntryType
 )
 

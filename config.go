@@ -93,19 +93,19 @@ func getXDGConfigDir() string {
 	return path.Join(xdg.ConfigHome, "gohome")
 }
 
-func getConfigDir() (string, error) {
+func getConfigDir() string {
 	confSrc := getAvailableConfigDirs()
 	if confSrc.IsZero() {
 		// prefer xdg dir for new config
-		return getXDGConfigDir(), nil
+		return getXDGConfigDir()
 	}
 
 	if len(confSrc.XDGDir) > 0 {
 		// prefer config from xdg dir
-		return confSrc.XDGDir, nil
+		return confSrc.XDGDir
 	}
 	// fall back to old config location
-	return confSrc.HomeDir, nil
+	return confSrc.HomeDir
 }
 
 func GetMatrixConfig() (MatrixConfig, error) {
@@ -113,11 +113,7 @@ func GetMatrixConfig() (MatrixConfig, error) {
 		console.Printlnf("failed to migrate config: %s", err.Error())
 	}
 
-	configDir, err := getConfigDir()
-	if err != nil {
-		return MatrixConfig{}, err
-	}
-
+	configDir := getConfigDir()
 	configFile := filepath.Join(configDir, "matrix.json")
 	data, err := os.ReadFile(configFile)
 	if err != nil {
