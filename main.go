@@ -154,7 +154,7 @@ func process() error {
 			return err
 		}
 
-		console.Println("-------------------------------------------")
+		console.Println("-----------------------------------------------------")
 		if cacheOK {
 			console.Printlnf("time now:            %s (cache from %s)", time.Now().Format("15:04"), cacheTime.Format("15:04:05"))
 		} else {
@@ -193,11 +193,11 @@ func process() error {
 		breakTime3 := t3.Sub(startTime) - (9 * time.Hour)
 		breakTime4 := t4.Sub(startTime) - (10 * time.Hour)
 
-		console.Println("-------------------------------------------")
+		console.Println("-----------------------------------------------------")
 		console.Printlnf("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime1), colorEnd)
 		console.Printlnf("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime3), colorEnd)
 		console.Printlnf("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime4), colorEnd)
-		console.Println("-------------------------------------------")
+		console.Println("-----------------------------------------------------")
 		console.Printlnf("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colors.LeaveTime, t2.Format("15:04"), colorEnd, colors.BreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 
 		if *argReminder {
