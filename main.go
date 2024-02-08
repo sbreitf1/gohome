@@ -11,14 +11,16 @@ import (
 )
 
 var (
-	appMain       = kingpin.New("gohome", "Shows current worktime of the day and estimates flexi times.")
-	argLeaveTime  = appMain.Flag("leave", "Show statistics for a given leave time in format '15:04'").Short('l').String()
-	argTargetTime = appMain.Flag("target-time", "Your daily target time like '08:00'").Default("08:00").Short('t').String()
-	argBreakTime  = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
-	argReminder   = appMain.Flag("reminder", "Show desktop notification on target time").Short('r').Bool()
-	argVerbose    = appMain.Flag("verbose", "Print every single step").Short('v').Bool()
-	argDumpColors = appMain.Flag("dump-colors", fmt.Sprintf("Populates %s/colors.json with the current colors", getConfigDir())).Bool()
-	currentState  EntryType
+	appMain             = kingpin.New("gohome", "Shows current worktime of the day and estimates flexi times.")
+	argLeaveTime        = appMain.Flag("leave", "Show statistics for a given leave time in format '15:04'").Short('l').String()
+	argTargetTime       = appMain.Flag("target-time", "Your daily target time like '08:00'").Default("08:00").Short('t').String()
+	argBreakTime        = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
+	argReminder         = appMain.Flag("reminder", "Show desktop notification on target time").Short('r').Bool()
+	argVerbose          = appMain.Flag("verbose", "Print every single step").Short('v').Bool()
+	argNoCache          = appMain.Flag("no-cache", "Do not use existing cache and force refresh of entries").Bool()
+	argCacheTimeSeconds = appMain.Flag("cache-time", "Max cache age in seconds").Default("600").Int()
+	argDumpColors       = appMain.Flag("dump-colors", fmt.Sprintf("Populates %s/colors.json with the current colors", getConfigDir())).Bool()
+	currentState        EntryType
 )
 
 func verbosePrint(format string, a ...interface{}) {
@@ -53,24 +55,56 @@ func process() error {
 		//TODO check target time
 	}
 
-	matrixConfig, err := GetMatrixConfig()
-	if err != nil {
-		return fmt.Errorf("unable to retrieve Matrix configuration: %s", err.Error())
-	}
-
-	if len(matrixConfig.Pass) == 0 {
-		console.Println("Please enter Matrix password (it will not be stored locally):")
-		console.Print("> ")
-		matrixConfig.Pass, err = console.ReadPassword()
+	var entries []Entry
+	var flexiTimeBalance time.Duration
+	var cacheTime time.Time
+	var cacheOK bool
+	if !*argNoCache {
+		verbosePrint("read cache")
+		var err error
+		entries, flexiTimeBalance, cacheTime, cacheOK, err = ReadCache()
 		if err != nil {
-			return fmt.Errorf("unable to retrieve Matrix password: %s", err.Error())
+			verbosePrint("read cache failed: %s", err.Error())
+		} else if cacheOK {
+			if len(entries) == 0 {
+				verbosePrint("no entries in cache, force update")
+				cacheOK = false
+			} else {
+				if entries[len(entries)-1].Type != EntryTypeCome {
+					verbosePrint("latest entry in cache is %q, force update", entries[len(entries)-1].Type)
+					cacheOK = false
+				} else {
+					verbosePrint("cache is valid")
+				}
+			}
 		}
 	}
+	if !cacheOK {
+		matrixConfig, err := GetMatrixConfig()
+		if err != nil {
+			return fmt.Errorf("unable to retrieve Matrix configuration: %s", err.Error())
+		}
 
-	verbosePrint("fetch matrix entries")
-	entries, flexiTimeBalance, err := FetchMatrixEntries(matrixConfig)
-	if err != nil {
-		return err
+		if len(matrixConfig.Pass) == 0 {
+			console.Println("Please enter Matrix password (it will not be stored locally):")
+			console.Print("> ")
+			matrixConfig.Pass, err = console.ReadPassword()
+			if err != nil {
+				return fmt.Errorf("unable to retrieve Matrix password: %s", err.Error())
+			}
+		}
+
+		verbosePrint("fetch matrix entries")
+		entries, flexiTimeBalance, err = FetchMatrixEntries(matrixConfig)
+		if err != nil {
+			return err
+		}
+
+		if err := WriteCache(entries, flexiTimeBalance); err != nil {
+			verbosePrint("write cache failed: %s", err.Error())
+		} else {
+			verbosePrint("cache written")
+		}
 	}
 
 	verbosePrint("entry count: %d", len(entries))
@@ -121,7 +155,11 @@ func process() error {
 		}
 
 		console.Println("-------------------------------------------")
-		console.Printlnf("time now:            %s", time.Now().Format("15:04"))
+		if cacheOK {
+			console.Printlnf("time now:            %s (cache from %s)", time.Now().Format("15:04"), cacheTime.Format("15:04:05"))
+		} else {
+			console.Printlnf("time now:            %s", time.Now().Format("15:04"))
+		}
 		flexiTime := noSeconds(accountedWorkTime) - targetTime
 		console.Printlnf("worktime:            %s%s%s (%s)", colors.WorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
 		if noSeconds(accountedBreakTime) != noSeconds(breakTime) {
