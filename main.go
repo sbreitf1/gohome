@@ -17,7 +17,7 @@ var (
 	argBreakTime        = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
 	argReminder         = appMain.Flag("reminder", "Show desktop notification on target time").Short('r').Bool()
 	argVerbose          = appMain.Flag("verbose", "Print every single step").Short('v').Bool()
-	argNoCache          = appMain.Flag("no-cache", "Do not use existing cache and force refresh of entries").Bool()
+	argForceReload      = appMain.Flag("force-reload", "Do not use existing cache and force refresh of entries").Short('f').Bool()
 	argCacheTimeSeconds = appMain.Flag("cache-time", "Max cache age in seconds").Default("600").Int()
 	argDumpColors       = appMain.Flag("dump-colors", fmt.Sprintf("Populates %s/colors.json with the current colors", getConfigDir())).Bool()
 	currentState        EntryType
@@ -59,7 +59,7 @@ func process() error {
 	var flexiTimeBalance time.Duration
 	var cacheTime time.Time
 	var cacheOK bool
-	if !*argNoCache {
+	if !*argForceReload {
 		verbosePrint("read cache")
 		var err error
 		entries, flexiTimeBalance, cacheTime, cacheOK, err = ReadCache()
