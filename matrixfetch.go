@@ -248,21 +248,44 @@ func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
 }
 
 func (c *MatrixClient) parseFlexiTime(body string) (time.Duration, error) {
-	pattern := regexp.MustCompile(`<td class="tableColumnRight" title="\s*(Saldo Vortag|Balance previous day)\s*" width="100"><span id="mainbody:editPersRecord:monthrecon:listDynTable:\d+:contentj_id__v_4">\s*(-?)\s*[&nbsp;]*\s*(\d+):(\d+)\s*</span>`)
-	matches := pattern.FindAllStringSubmatch(body, -1)
-	if len(matches) == 0 {
+	doc := etree.NewDocument()
+	err := doc.ReadFromString(body)
+	if err != nil {
+		return 0, fmt.Errorf("unable to flexi-time balance html")
+	}
+
+	tableData := doc.FindElements("//*[@title='Balance previous day']")
+	if len(tableData) == 0 {
 		return 0, fmt.Errorf("unable to parse current flexi-time balance")
 	}
 
-	m := matches[len(matches)-1]
-
-	sign := 1
-	if m[2] == "-" {
-		sign = -1
+	lastElement := tableData[len(tableData)-1]
+	if len(lastElement.ChildElements()) == 0 {
+		return 0, fmt.Errorf("unable to find flexi-time balance in element childs")
 	}
-	hours, _ := strconv.Atoi(m[3])
-	minutes, _ := strconv.Atoi(m[4])
-	return time.Duration(sign) * (time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute), nil
+
+	child := lastElement.ChildElements()[0]
+	text := child.Text()
+
+	isNegative := false
+	if strings.Contains(text, "-") {
+		isNegative = true
+		text = strings.ReplaceAll(text, "-", "")
+	}
+
+	splitString := strings.Split(text, ":")
+	if len(splitString) != 2 {
+		return 0, fmt.Errorf("unexpected time format found in flexi-time balance")
+	}
+
+	hours, _ := strconv.Atoi(splitString[0])
+	minutes, _ := strconv.Atoi(splitString[1])
+
+	if isNegative {
+		return -1 * (time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute), nil
+	}
+
+	return (time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute), nil
 }
 
 func (c *MatrixClient) absoluteURL(url string) string {
