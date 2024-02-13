@@ -156,7 +156,7 @@ func process() error {
 
 		console.Println("-----------------------------------------------------")
 		if cacheOK {
-			console.Printlnf("time now:            %s (cache from %s)", time.Now().Format("15:04"), cacheTime.Format("15:04:05"))
+			console.Printlnf("time now:            %s %s(cache from %s)%s", time.Now().Format("15:04"), colors.CacheHint, cacheTime.Format("15:04:05"), colorEnd)
 		} else {
 			console.Printlnf("time now:            %s", time.Now().Format("15:04"))
 		}

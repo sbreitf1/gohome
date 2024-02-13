@@ -15,6 +15,7 @@ type colorsDef struct {
 	ComeEntry      string
 	LeaveEntry     string
 	TripEntry      string
+	CacheHint      string
 	WorkTime       string
 	BreakEntry     string
 	BreakInfo      string
@@ -44,6 +45,8 @@ func initColors() {
 func disableColors() {
 	colors.ComeEntry = ""
 	colors.LeaveEntry = ""
+	colors.TripEntry = ""
+	colors.CacheHint = ""
 	colors.WorkTime = ""
 	colors.BreakEntry = ""
 	colors.BreakInfo = ""
@@ -57,6 +60,7 @@ func setDefaultColors() {
 	colors.ComeEntry = "\033[2;32m"
 	colors.LeaveEntry = "\033[2;31m"
 	colors.TripEntry = "\033[2;33m"
+	colors.CacheHint = "\033[2;37m"
 	colors.WorkTime = "\033[1;37m"
 	colors.BreakEntry = "\033[2;37m"
 	colors.BreakInfo = "\033[1;30m"
@@ -109,6 +113,7 @@ func shortenColors(colors colorsDef) colorsDef {
 		ComeEntry:      strings.ReplaceAll(strings.ReplaceAll(colors.ComeEntry, "\033[", ""), "m", ""),
 		LeaveEntry:     strings.ReplaceAll(strings.ReplaceAll(colors.LeaveEntry, "\033[", ""), "m", ""),
 		TripEntry:      strings.ReplaceAll(strings.ReplaceAll(colors.TripEntry, "\033[", ""), "m", ""),
+		CacheHint:      strings.ReplaceAll(strings.ReplaceAll(colors.TripEntry, "\033[", ""), "m", ""),
 		WorkTime:       strings.ReplaceAll(strings.ReplaceAll(colors.WorkTime, "\033[", ""), "m", ""),
 		BreakEntry:     strings.ReplaceAll(strings.ReplaceAll(colors.BreakEntry, "\033[", ""), "m", ""),
 		BreakInfo:      strings.ReplaceAll(strings.ReplaceAll(colors.BreakInfo, "\033[", ""), "m", ""),
@@ -122,6 +127,7 @@ func importColors(dst *colorsDef, src colorsDef) {
 	importColor(&dst.ComeEntry, src.ComeEntry, "ComeEntry")
 	importColor(&dst.LeaveEntry, src.LeaveEntry, "LeaveEntry")
 	importColor(&dst.TripEntry, src.TripEntry, "TripEntry")
+	importColor(&dst.CacheHint, src.CacheHint, "CacheHint")
 	importColor(&dst.WorkTime, src.WorkTime, "WorkTime")
 	importColor(&dst.BreakEntry, src.BreakEntry, "BreakEntry")
 	importColor(&dst.BreakInfo, src.BreakInfo, "BreakInfo")
