@@ -60,7 +60,7 @@ func setDefaultColors() {
 	colors.ComeEntry = "\033[2;32m"
 	colors.LeaveEntry = "\033[2;31m"
 	colors.TripEntry = "\033[2;33m"
-	colors.CacheHint = "\033[2;37m"
+	colors.CacheHint = "\033[1;30"
 	colors.WorkTime = "\033[1;37m"
 	colors.BreakEntry = "\033[2;37m"
 	colors.BreakInfo = "\033[1;30m"
