@@ -13,13 +13,14 @@ import (
 var (
 	appMain             = kingpin.New("gohome", "Shows current worktime of the day and estimates flexi times.")
 	argLeaveTime        = appMain.Flag("leave", "Show statistics for a given leave time in format '15:04'").Short('l').String()
-	argTargetTime       = appMain.Flag("target-time", "Your daily target time like '08:00'").Default("08:00").Short('t').String()
+	argTargetTime       = appMain.Flag("target-time", "Your daily target time like '08:00'").Short('t').String()
 	argBreakTime        = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
 	argReminder         = appMain.Flag("reminder", "Show desktop notification on target time").Short('r').Bool()
 	argVerbose          = appMain.Flag("verbose", "Print every single step").Short('v').Bool()
 	argForceReload      = appMain.Flag("force-reload", "Do not use existing cache and force refresh of entries").Short('f').Bool()
 	argCacheTimeSeconds = appMain.Flag("cache-time", "Max cache age in seconds").Default("600").Int()
 	argDumpColors       = appMain.Flag("dump-colors", fmt.Sprintf("Populates %s/colors.json with the current colors", getConfigDir())).Bool()
+	argSaveConfig       = appMain.Flag("save-config", "write changes from command line parameters to user config").Bool()
 	currentState        EntryType
 )
 
@@ -45,6 +46,18 @@ func main() {
 }
 
 func process() error {
+	var usrConfIsOK bool
+	usrConf, err := ReadUserConfig()
+	if err != nil {
+		verbosePrint("ERR: read user config failed: %s", err.Error())
+	} else {
+		usrConfIsOK = true
+	}
+
+	if len(*argTargetTime) == 0 && len(usrConf.TargetTimeStr) > 0 {
+		*argTargetTime = usrConf.TargetTimeStr
+	}
+
 	targetTime := time.Duration(8) * time.Hour
 	if len(*argTargetTime) > 0 {
 		t, err := time.Parse("15:04", *argTargetTime)
@@ -53,7 +66,22 @@ func process() error {
 		}
 		targetTime = time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute
 		//TODO check target time
+
+		usrConf.TargetTimeStr = fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute())
 	}
+
+	if *argSaveConfig {
+		if usrConfIsOK {
+			verbosePrint("persist user config")
+			if err := WriteUserConfig(usrConf); err != nil {
+				verbosePrint("ERR: write user config failed: %s", err.Error())
+			}
+		} else {
+			verbosePrint("skip export of corrupt user config")
+		}
+	}
+
+	verbosePrint("target time is %v", targetTime)
 
 	var entries []Entry
 	var flexiTimeBalance time.Duration

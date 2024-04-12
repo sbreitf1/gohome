@@ -9,7 +9,7 @@ Util to show current worktime and possible leave times with Matrix integration.
 To download and install the utility execute the following commands:
 
 ```
-go install github.com/sbreitf1/gohome@v1.4.3
+go install github.com/sbreitf1/gohome@v1.5.0
 ```
 
 Now start it with `gohome` from command line.
@@ -21,6 +21,16 @@ You will probably be asked to enter a Matrix host. Paste the same host you visit
 These values are stored in `~/.config/gohome` (XDG compatible) and are used in all following runs. You can enter an empty password here to only store host and username. You will be prompted for your password on every run.
 
 Old configs in `~/.gohome` will be automatically migrated.
+
+## User Config
+
+You can edit your user settings in `~/.config/gohome/userconfig.json`. Following values are available:
+
+| Key | Description |
+| --- | ----------- |
+| `TargetTime` | A target time as provided by parameter `-t` in format `08:00`. |
+
+Use parameter `--save-config` to persist command line parameters in user config.
 
 ## Thanks
 
