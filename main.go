@@ -41,6 +41,7 @@ func main() {
 	}
 
 	if currentState != EntryTypeCome {
+		console.Printlnf("WARN clock is not ticking at the moment!")
 		os.Exit(2)
 	}
 }
@@ -240,8 +241,6 @@ func process() error {
 			}
 		}
 	}
-
-	//TODO print warning "nicht eingestochen" in red
 
 	return nil
 }
