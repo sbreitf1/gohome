@@ -9,7 +9,7 @@ Util to show current worktime and possible leave times with Matrix integration.
 To download and install the utility execute the following commands:
 
 ```
-go install github.com/sbreitf1/gohome@v1.5.0
+go install github.com/sbreitf1/gohome@v1.5.1
 ```
 
 Now start it with `gohome` from command line.
