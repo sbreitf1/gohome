@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sbreitf1/gohome/internal/pkg/jcrypt"
+
 	"github.com/adrg/xdg"
 	"github.com/sbreitf1/go-console"
-	"github.com/sbreitf1/go-jcrypt"
 )
 
 var (
