@@ -5,9 +5,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/sbreitf1/gohome/internal/pkg/stdio"
+
 	"github.com/alecthomas/kingpin"
 	"github.com/danielb42/goat"
-	"github.com/sbreitf1/go-console"
 )
 
 var (
@@ -24,24 +25,20 @@ var (
 	currentState        EntryType
 )
 
-func verbosePrint(format string, a ...interface{}) {
-	if *argVerbose {
-		console.Printlnf("[DEBUG] "+format, a...)
-	}
-}
-
 func main() {
 	kingpin.MustParse(appMain.Parse(os.Args[1:]))
+
+	stdio.Verbose = *argVerbose
 
 	initColors()
 
 	if err := process(); err != nil {
-		console.Printlnf("%s", err.Error())
+		stdio.Error("%s", err.Error())
 		os.Exit(1)
 	}
 
 	if currentState != EntryTypeCome {
-		console.Printlnf("WARN clock is not ticking at the moment!")
+		stdio.Warn("clock is not ticking at the moment!")
 		os.Exit(2)
 	}
 }
@@ -50,7 +47,7 @@ func process() error {
 	var usrConfIsOK bool
 	usrConf, err := ReadUserConfig()
 	if err != nil {
-		verbosePrint("ERR: read user config failed: %s", err.Error())
+		stdio.Warn("read user config failed: %s", err.Error())
 	} else {
 		usrConfIsOK = true
 	}
@@ -73,37 +70,37 @@ func process() error {
 
 	if *argSaveConfig {
 		if usrConfIsOK {
-			verbosePrint("persist user config")
+			stdio.Debug("persist user config")
 			if err := WriteUserConfig(usrConf); err != nil {
-				verbosePrint("ERR: write user config failed: %s", err.Error())
+				stdio.Warn("write user config failed: %s", err.Error())
 			}
 		} else {
-			verbosePrint("skip export of corrupt user config")
+			stdio.Debug("skip export of corrupt user config")
 		}
 	}
 
-	verbosePrint("target time is %v", targetTime)
+	stdio.Debug("target time is %v", targetTime)
 
 	var entries []Entry
 	var flexiTimeBalance time.Duration
 	var cacheTime time.Time
 	var cacheOK bool
 	if !*argForceReload {
-		verbosePrint("read cache")
+		stdio.Debug("read cache")
 		var err error
 		entries, flexiTimeBalance, cacheTime, cacheOK, err = ReadCache()
 		if err != nil {
-			verbosePrint("read cache failed: %s", err.Error())
+			stdio.Warn("read cache failed: %s", err.Error())
 		} else if cacheOK {
 			if len(entries) == 0 {
-				verbosePrint("no entries in cache, force update")
+				stdio.Debug("no entries in cache, force update")
 				cacheOK = false
 			} else {
 				if entries[len(entries)-1].Type != EntryTypeCome {
-					verbosePrint("latest entry in cache is %q, force update", entries[len(entries)-1].Type)
+					stdio.Debug("latest entry in cache is %q, force update", entries[len(entries)-1].Type)
 					cacheOK = false
 				} else {
-					verbosePrint("cache is valid")
+					stdio.Debug("cache is valid")
 				}
 			}
 		}
@@ -115,28 +112,27 @@ func process() error {
 		}
 
 		if len(matrixConfig.Pass) == 0 {
-			console.Println("Please enter Matrix password (it will not be stored locally):")
-			console.Print("> ")
-			matrixConfig.Pass, err = console.ReadPassword()
+			stdio.Println("Please enter Matrix password (it will not be stored locally):")
+			matrixConfig.Pass, err = stdio.ReadPasswordWithPrompt("> ")
 			if err != nil {
 				return fmt.Errorf("unable to retrieve Matrix password: %s", err.Error())
 			}
 		}
 
-		verbosePrint("fetch matrix entries")
+		stdio.Debug("fetch matrix entries")
 		entries, flexiTimeBalance, err = FetchMatrixEntries(matrixConfig)
 		if err != nil {
 			return err
 		}
 
 		if err := WriteCache(entries, flexiTimeBalance); err != nil {
-			verbosePrint("write cache failed: %s", err.Error())
+			stdio.Warn("write cache failed: %s", err.Error())
 		} else {
-			verbosePrint("cache written")
+			stdio.Debug("cache written")
 		}
 	}
 
-	verbosePrint("entry count: %d", len(entries))
+	stdio.Debug("entry count: %d", len(entries))
 	if len(entries) > 0 {
 		if len(*argLeaveTime) > 0 {
 			t, err := time.Parse("15:04", *argLeaveTime)
@@ -151,11 +147,11 @@ func process() error {
 
 		for _, entry := range entries {
 			if entry.Type == EntryTypeCome {
-				console.Printlnf(" %s--> %s%s", colors.ComeEntry, entry.Time.Format("15:04"), colorEnd)
+				stdio.Println(" %s--> %s%s", colors.ComeEntry, entry.Time.Format("15:04"), colorEnd)
 			} else if entry.Type == EntryTypeLeave {
-				console.Printlnf(" %s<-- %s%s", colors.LeaveEntry, entry.Time.Format("15:04"), colorEnd)
+				stdio.Println(" %s<-- %s%s", colors.LeaveEntry, entry.Time.Format("15:04"), colorEnd)
 			} else if entry.Type == EntryTypeTrip {
-				console.Printlnf(" %s<-- %s DG%s", colors.TripEntry, entry.Time.Format("15:04"), colorEnd)
+				stdio.Println(" %s<-- %s DG%s", colors.TripEntry, entry.Time.Format("15:04"), colorEnd)
 			}
 
 			currentState = entry.Type
@@ -183,22 +179,22 @@ func process() error {
 			return err
 		}
 
-		console.Println("-----------------------------------------------------")
+		stdio.Println("-----------------------------------------------------")
 		if cacheOK {
-			console.Printlnf("time now:            %s %s(cache from %s)%s", time.Now().Format("15:04"), colors.CacheHint, cacheTime.Format("15:04:05"), colorEnd)
+			stdio.Println("time now:            %s %s(cache from %s)%s", time.Now().Format("15:04"), colors.CacheHint, cacheTime.Format("15:04:05"), colorEnd)
 		} else {
-			console.Printlnf("time now:            %s", time.Now().Format("15:04"))
+			stdio.Println("time now:            %s", time.Now().Format("15:04"))
 		}
 		flexiTime := noSeconds(accountedWorkTime) - targetTime
-		console.Printlnf("worktime:            %s%s%s (%s)", colors.WorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
+		stdio.Println("worktime:            %s%s%s (%s)", colors.WorkTime, formatDurationSeconds(accountedWorkTime), colorEnd, formatFlexiTime(flexiTime))
 		if noSeconds(accountedBreakTime) != noSeconds(breakTime) {
-			console.Printlnf("%sbreak:               %s (taken %s)%s", colors.BreakEntry, formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime), colorEnd)
+			stdio.Println("%sbreak:               %s (taken %s)%s", colors.BreakEntry, formatDurationMinutes(accountedBreakTime), formatDurationMinutes(breakTime), colorEnd)
 		} else {
-			console.Printlnf("%sbreak:               %s%s", colors.BreakEntry, formatDurationMinutes(accountedBreakTime), colorEnd)
+			stdio.Println("%sbreak:               %s%s", colors.BreakEntry, formatDurationMinutes(accountedBreakTime), colorEnd)
 		}
 
 		newFlexiTimeBalance := flexiTimeBalance + flexiTime
-		console.Printlnf("flexi-time balance: %s -> %s", formatFlexiTime(flexiTimeBalance), formatFlexiTime(newFlexiTimeBalance))
+		stdio.Println("flexi-time balance: %s -> %s", formatFlexiTime(flexiTimeBalance), formatFlexiTime(newFlexiTimeBalance))
 
 		t1, err := GetLeaveTime(startTime, breakTime, 6*time.Hour)
 		if err != nil {
@@ -222,12 +218,12 @@ func process() error {
 		breakTime3 := t3.Sub(startTime) - (9 * time.Hour)
 		breakTime4 := t4.Sub(startTime) - (10 * time.Hour)
 
-		console.Println("-----------------------------------------------------")
-		console.Printlnf("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime1), colorEnd)
-		console.Printlnf("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime3), colorEnd)
-		console.Printlnf("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime4), colorEnd)
-		console.Println("-----------------------------------------------------")
-		console.Printlnf("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colors.LeaveTime, t2.Format("15:04"), colorEnd, colors.BreakInfo, formatDurationMinutes(breakTime2), colorEnd)
+		stdio.Println("-----------------------------------------------------")
+		stdio.Println("06:00 at %s %s(%s break)%s", t1.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime1), colorEnd)
+		stdio.Println("09:00 at %s %s(%s break)%s", t3.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime3), colorEnd)
+		stdio.Println("10:00 at %s %s(%s break)%s", t4.Format("15:04"), colors.BreakInfo, formatDurationMinutes(breakTime4), colorEnd)
+		stdio.Println("-----------------------------------------------------")
+		stdio.Println("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colors.LeaveTime, t2.Format("15:04"), colorEnd, colors.BreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 
 		if *argReminder {
 			if err := goat.ClearQueue("g"); err != nil {

@@ -271,7 +271,7 @@ func decryptAES(data, key, salt []byte) ([]byte, error) {
 	stream := cipher.NewCFBDecrypter(c, data[:c.BlockSize()])
 	stream.XORKeyStream(decData, data[c.BlockSize():])
 
-	return unpackSafeData(decData, c.BlockSize())
+	return unpackSafeData(decData)
 }
 
 func deriveKeyAES(key, salt []byte) []byte {
@@ -299,7 +299,7 @@ func packSafeData(data []byte, blockSize int) []byte {
 	return safeData
 }
 
-func unpackSafeData(safeData []byte, blockSize int) ([]byte, error) {
+func unpackSafeData(safeData []byte) ([]byte, error) {
 	if len(safeData) < 36 {
 		return nil, fmt.Errorf("data block corrupt")
 	}

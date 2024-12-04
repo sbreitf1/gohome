@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/sbreitf1/gohome/internal/pkg/stdio"
 )
 
 type cacheData struct {
@@ -32,12 +34,12 @@ func ReadCache() ([]Entry, time.Duration, time.Time, bool, error) {
 
 	now := time.Now()
 	if cd.Time.Year() != now.Year() || cd.Time.Month() != now.Month() || cd.Time.Day() != now.Day() {
-		verbosePrint("cache is for another day")
+		stdio.Debug("cache is for another day")
 		return nil, 0, time.Time{}, false, nil
 	}
 	maxCacheAge := time.Duration(*argCacheTimeSeconds) * time.Second
 	if cd.Time.Before(now.Add(-maxCacheAge)) {
-		verbosePrint("cache is older than max age of %v", maxCacheAge)
+		stdio.Debug("cache is older than max age of %v", maxCacheAge)
 		return nil, 0, time.Time{}, false, nil
 	}
 	return cd.Entries, cd.FlexiTime, cd.Time, true, nil

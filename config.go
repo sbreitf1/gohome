@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/sbreitf1/gohome/internal/pkg/jcrypt"
+	"github.com/sbreitf1/gohome/internal/pkg/stdio"
 
 	"github.com/adrg/xdg"
-	"github.com/sbreitf1/go-console"
 )
 
 var (
@@ -78,7 +78,7 @@ func migrateOldConfig() error {
 		return err
 	}
 
-	console.Printlnf("config migrated to %s", dstDir)
+	stdio.Info("config migrated to %s", dstDir)
 	return nil
 }
 
@@ -111,7 +111,7 @@ func getConfigDir() string {
 
 func GetMatrixConfig() (MatrixConfig, error) {
 	if err := migrateOldConfig(); err != nil {
-		console.Printlnf("failed to migrate config: %s", err.Error())
+		stdio.Error("failed to migrate config: %s", err.Error())
 	}
 
 	configDir := getConfigDir()
@@ -125,10 +125,10 @@ func GetMatrixConfig() (MatrixConfig, error) {
 			}
 
 			if err := os.MkdirAll(configDir, os.ModePerm); err != nil {
-				console.Printlnf("Failed to store configuration: %s", err.Error())
+				stdio.Error("failed to store configuration: %s", err.Error())
 			}
 			if err := jcrypt.MarshalToFile(configFile, &config, &jcrypt.Options{GetKeyHandler: jcrypt.StaticKey(key)}); err != nil {
-				console.Printlnf("Failed to store configuration: %s", err.Error())
+				stdio.Error("failed to store configuration: %s", err.Error())
 			}
 			return config, nil
 		}
@@ -144,9 +144,8 @@ func GetMatrixConfig() (MatrixConfig, error) {
 }
 
 func enterMatrixConfig() (MatrixConfig, error) {
-	console.Printlnf("Please enter your Matrix configuration below:")
-	console.Print("Host> ")
-	host, err := console.ReadLine()
+	stdio.Println("Please enter your Matrix configuration below:")
+	host, err := stdio.ReadLineWithPrompt("Host> ")
 	if err != nil {
 		return MatrixConfig{}, err
 	}
@@ -161,14 +160,12 @@ func enterMatrixConfig() (MatrixConfig, error) {
 		host = host[:index+protIndex+3]
 	}
 
-	console.Print("User> ")
-	user, err := console.ReadLine()
+	user, err := stdio.ReadLineWithPrompt("User> ")
 	if err != nil {
 		return MatrixConfig{}, err
 	}
 
-	console.Print("Pass> ")
-	pass, err := console.ReadPassword()
+	pass, err := stdio.ReadPasswordWithPrompt("Pass> ")
 	if err != nil {
 		return MatrixConfig{}, err
 	}

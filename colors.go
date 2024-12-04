@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/sbreitf1/go-console"
+	"github.com/sbreitf1/gohome/internal/pkg/stdio"
 )
 
 type colorsDef struct {
@@ -31,8 +31,8 @@ var (
 )
 
 func initColors() {
-	if !console.SupportsColors() {
-		verbosePrint("disable color support")
+	if !stdio.SupportsColors() {
+		stdio.Debug("disable color support")
 		disableColors()
 	} else {
 		readColors()
@@ -75,37 +75,37 @@ func readColors() {
 	data, err := os.ReadFile(filepath.Join(dir, "colors.json"))
 	if err != nil {
 		if !os.IsNotExist(err) {
-			console.Printlnf("failed to read colors.json: %s", err.Error())
+			stdio.Warn("failed to read colors.json: %s", err.Error())
 		}
 		return
 	}
 	var newColors colorsDef
 	if err := json.Unmarshal(data, &newColors); err != nil {
-		console.Printlnf("failed to unmarshal colors config")
+		stdio.Warn("failed to unmarshal colors config")
 		return
 	}
-	verbosePrint("import colors from colors.json")
+	stdio.Debug("import colors from colors.json")
 	importColors(&colors, newColors)
 }
 
 func dumpColors() {
 	data, err := json.MarshalIndent(shortenColors(colors), "", "  ")
 	if err != nil {
-		console.Printlnf("failed to marshal colors to json")
+		stdio.Error("failed to marshal colors to json")
 		return
 	}
 	dir := getConfigDir()
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		console.Printlnf("failed to create config dir: %s", err.Error())
+		stdio.Error("failed to create config dir: %s", err.Error())
 		return
 	}
 	outputFilePath := filepath.Join(dir, "colors.json")
 	if err := os.WriteFile(outputFilePath, data, os.ModePerm); err != nil {
-		console.Printlnf("failed to create config dir: %s", err.Error())
+		stdio.Error("failed to create config dir: %s", err.Error())
 		return
 	}
 
-	console.Printlnf("wrote colors to %s", outputFilePath)
+	stdio.Info("wrote colors to %s", outputFilePath)
 }
 
 func shortenColors(colors colorsDef) colorsDef {
@@ -139,7 +139,7 @@ func importColors(dst *colorsDef, src colorsDef) {
 func importColor(dst *string, src string, fieldName string) {
 	m := patternColor.FindStringSubmatch(src)
 	if len(m) != 3 {
-		console.Printlnf("color for %q invalid", fieldName)
+		stdio.Warn("color for %q invalid", fieldName)
 		return
 	}
 	*dst = fmt.Sprintf("\033[%s;%sm", m[1], m[2])

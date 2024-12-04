@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sbreitf1/gohome/internal/pkg/stdio"
+
 	"github.com/beevik/etree"
 )
 
@@ -37,13 +39,13 @@ func FetchMatrixEntries(config MatrixConfig) ([]Entry, time.Duration, error) {
 	}
 	defer client.Close()
 
-	verbosePrint("get entries")
+	stdio.Debug("get entries")
 	entries, err := client.GetEntries()
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to retrieve entries: %s", err.Error())
 	}
 
-	verbosePrint("get flexi time")
+	stdio.Debug("get flexi time")
 	flexitime, err := client.GetFlexiTime()
 	if err != nil {
 		return nil, 0, fmt.Errorf("could not retrieve flexitime: %s", err.Error())
@@ -86,11 +88,11 @@ func NewMatrixClient(config MatrixConfig) (*MatrixClient, error) {
 		},
 	}
 
-	verbosePrint("logging in")
+	stdio.Debug("logging in")
 	if err := client.login(); err != nil {
 		return nil, fmt.Errorf("login failed: %s", err.Error())
 	}
-	verbosePrint("visit self service page")
+	stdio.Debug("visit self service page")
 	if err := client.visitSelfService(); err != nil {
 		return nil, fmt.Errorf("visit self-service failed: %s", err.Error())
 	}
@@ -133,7 +135,7 @@ func (c *MatrixClient) detectRedirectURI() error {
 			return fmt.Errorf("unexpected redirect url for login: %s", resp.Header.Get("Location"))
 		}
 		matrixVersionURL = "/" + parts[1]
-		verbosePrint("detected matrix url %q", matrixVersionURL)
+		stdio.Debug("detected matrix url %q", matrixVersionURL)
 	}
 
 	return nil
@@ -193,7 +195,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 		date := time.Date(today.Year(), today.Month(), today.Day(), hour, minute, 0, 0, time.Local)
 
 		if hour == 0 && minute == 0 {
-			verbosePrint("ignore booking %q at 00:00", m[4])
+			stdio.Debug("ignore booking %q at 00:00", m[4])
 			continue
 		}
 
@@ -215,10 +217,10 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 			entryType = EntryTypeLeave
 		} else if strings.Contains(typeStr, "???bookingtype.1034.name???") {
 			// "???BookingType.1034.name???" wird geschrieben, wenn man am Terminal den Kontostand abfragt
-			verbosePrint("found strange booking type: %q", typeStr)
+			stdio.Debug("found strange booking type: %q", typeStr)
 			continue
 		} else if strings.Contains(typeStr, "valid until") {
-			verbosePrint("found strange booking type: %q", typeStr)
+			stdio.Debug("found strange booking type: %q", typeStr)
 			continue
 		} else {
 			return nil, fmt.Errorf("cannot parse entry type from %q", typeStr)
