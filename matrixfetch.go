@@ -321,6 +321,10 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 		// this happens when a custom start page is selected. force redirect to main menu instead
 		response.Header.Set("Location", matrixVersionURL+urlMatrixMainMenu)
 	}
+	if response.Header.Get("Location") == "afterLogin.jsf" {
+		// changed redirect in v4.4.2
+		response.Header.Set("Location", matrixVersionURL+urlMatrixMainMenu)
+	}
 
 	request, err = http.NewRequest(http.MethodGet, c.absoluteURL(response.Header.Get("Location")), nil)
 	if err != nil {
