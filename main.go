@@ -134,6 +134,8 @@ func process() error {
 
 	stdio.Debug("entry count: %d", len(entries))
 	if len(entries) > 0 {
+		currentState = entries[len(entries)-1].Type
+
 		if len(*argLeaveTime) > 0 {
 			t, err := time.Parse("15:04", *argLeaveTime)
 			if err != nil {
@@ -153,8 +155,6 @@ func process() error {
 			} else if entry.Type == EntryTypeTrip {
 				stdio.Println(" %s<-- %s DG%s", colors.TripEntry, entry.Time.Format("15:04"), colorEnd)
 			}
-
-			currentState = entry.Type
 		}
 
 		workTime, startTime, breakTime, err := ComputeWorkTime(entries)
