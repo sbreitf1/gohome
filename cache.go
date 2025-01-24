@@ -37,7 +37,7 @@ func ReadCache() ([]Entry, time.Duration, time.Time, bool, error) {
 		stdio.Debug("cache is for another day")
 		return nil, 0, time.Time{}, false, nil
 	}
-	maxCacheAge := time.Duration(*argCacheTimeSeconds) * time.Second
+	maxCacheAge := time.Duration(cli.Show.CacheTimeSeconds) * time.Second
 	if cd.Time.Before(now.Add(-maxCacheAge)) {
 		stdio.Debug("cache is older than max age of %v", maxCacheAge)
 		return nil, 0, time.Time{}, false, nil

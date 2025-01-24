@@ -37,9 +37,6 @@ func initColors() {
 	} else {
 		readColors()
 	}
-	if *argDumpColors {
-		dumpColors()
-	}
 }
 
 func disableColors() {
@@ -88,24 +85,22 @@ func readColors() {
 	importColors(&colors, newColors)
 }
 
-func dumpColors() {
+func dumpColors() error {
 	data, err := json.MarshalIndent(shortenColors(colors), "", "  ")
 	if err != nil {
-		stdio.Error("failed to marshal colors to json")
-		return
+		return fmt.Errorf("failed to marshal colors to json")
 	}
 	dir := getConfigDir()
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		stdio.Error("failed to create config dir: %s", err.Error())
-		return
+		return fmt.Errorf("failed to create config dir: %s", err.Error())
 	}
 	outputFilePath := filepath.Join(dir, "colors.json")
 	if err := os.WriteFile(outputFilePath, data, os.ModePerm); err != nil {
-		stdio.Error("failed to create config dir: %s", err.Error())
-		return
+		return fmt.Errorf("failed to create config dir: %s", err.Error())
 	}
 
 	stdio.Info("wrote colors to %s", outputFilePath)
+	return nil
 }
 
 func shortenColors(colors colorsDef) colorsDef {

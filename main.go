@@ -7,47 +7,74 @@ import (
 
 	"github.com/sbreitf1/gohome/internal/pkg/stdio"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kong"
 	"github.com/danielb42/goat"
 )
 
 var (
-	appMain             = kingpin.New("gohome", "Shows current worktime of the day and estimates flexi times.")
-	argLeaveTime        = appMain.Flag("leave", "Show statistics for a given leave time in format '15:04'").Short('l').String()
-	argTargetTime       = appMain.Flag("target-time", "Your daily target time like '08:00'").Short('t').String()
-	argBreakTime        = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
-	argReminder         = appMain.Flag("reminder", "Show desktop notification on target time").Short('r').Bool()
-	argVerbose          = appMain.Flag("verbose", "Print every single step").Short('v').Bool()
-	argDebug            = appMain.Flag("debug", "Maximum debug output").Bool()
-	argForceReload      = appMain.Flag("force-reload", "Do not use existing cache and force refresh of entries").Short('f').Bool()
-	argCacheTimeSeconds = appMain.Flag("cache-time", "Max cache age in seconds").Default("600").Int()
-	argDumpColors       = appMain.Flag("dump-colors", fmt.Sprintf("Populates %s/colors.json with the current colors", getConfigDir())).Bool()
-	argSaveConfig       = appMain.Flag("save-config", "write changes from command line parameters to user config").Bool()
-	currentState        EntryType
+	cli struct {
+		Verbose bool `name:"verbose" short:"v" help:"more verbose printing"`
+		Debug   bool `name:"debug" help:"maximum debug output including scraped files"`
+
+		Show struct {
+			TargetTime       string `name:"target-time" short:"t" default:"08:00" help:"assume target time in format '15:04'"`
+			LeaveTime        string `name:"leave-time" short:"l" default:"" help:"simulate a given leave time in format '15:04'"`
+			BreakTime        string `name:"break-time" short:"b" default:"" help:"simulate a given break time in format '15:04'"`
+			ForceReload      bool   `name:"force-reload" short:"f" help:"ignore local cache and force refresh of entries"`
+			CacheTimeSeconds int    `name:"cache-time" default:"600" help:"max cache age in seconds"`
+			SetReminder      bool   `name:"set-reminder" short:"r" help:"sets a reminder via linux at command"`
+
+			SaveConfig bool `name:"save-config" help:"DEPRECATED - write changes from command line parameters to user config"`
+		} `cmd:"show" default:"withargs" help:"Show today's stats"`
+
+		DumpColors struct {
+		} `cmd:"dump-colors" help:"Populates colors.json in the application config directory"`
+	}
+
+	currentState EntryType
 )
 
 func main() {
-	kingpin.MustParse(appMain.Parse(os.Args[1:]))
+	ctx := kong.Parse(&cli)
+	if err := execCmd(ctx.Command()); err != nil {
+		fmt.Println("ERR:", err)
+		os.Exit(1)
+	}
+}
 
-	if *argDebug {
-		*argVerbose = true
+func execCmd(cmd string) error {
+	if cli.Debug {
+		cli.Verbose = true
 		matrixDebugPrint = true
 		matrixOutputFiles = true
 		matrixOutputFileDir = "."
 	}
-	stdio.Verbose = *argVerbose
+	stdio.Verbose = cli.Verbose
 
 	initColors()
 
+	switch cmd {
+	case "show":
+		return cmdShow()
+
+	case "dump-colors":
+		return dumpColors()
+
+	default:
+		return fmt.Errorf("unknown command %q", cmd)
+	}
+}
+
+func cmdShow() error {
 	if err := process(); err != nil {
-		stdio.Error("%s", err.Error())
-		os.Exit(1)
+		return err
 	}
 
 	if currentState != EntryTypeCome {
 		stdio.Warn("clock is not ticking at the moment!")
 		os.Exit(2)
 	}
+	return nil
 }
 
 func process() error {
@@ -59,13 +86,13 @@ func process() error {
 		usrConfIsOK = true
 	}
 
-	if len(*argTargetTime) == 0 && len(usrConf.TargetTimeStr) > 0 {
-		*argTargetTime = usrConf.TargetTimeStr
+	if len(cli.Show.TargetTime) == 0 && len(usrConf.TargetTimeStr) > 0 {
+		cli.Show.TargetTime = usrConf.TargetTimeStr
 	}
 
 	targetTime := time.Duration(8) * time.Hour
-	if len(*argTargetTime) > 0 {
-		t, err := time.Parse("15:04", *argTargetTime)
+	if len(cli.Show.TargetTime) > 0 {
+		t, err := time.Parse("15:04", cli.Show.TargetTime)
 		if err != nil {
 			return fmt.Errorf("failed to parse target time: %s", err.Error())
 		}
@@ -75,7 +102,7 @@ func process() error {
 		usrConf.TargetTimeStr = fmt.Sprintf("%02d:%02d", t.Hour(), t.Minute())
 	}
 
-	if *argSaveConfig {
+	if cli.Show.SaveConfig {
 		if usrConfIsOK {
 			stdio.Debug("persist user config")
 			if err := WriteUserConfig(usrConf); err != nil {
@@ -92,7 +119,7 @@ func process() error {
 	var flexiTimeBalance time.Duration
 	var cacheTime time.Time
 	var cacheOK bool
-	if !*argForceReload {
+	if !cli.Show.ForceReload {
 		stdio.Debug("read cache")
 		var err error
 		entries, flexiTimeBalance, cacheTime, cacheOK, err = ReadCache()
@@ -143,8 +170,8 @@ func process() error {
 	if len(entries) > 0 {
 		currentState = entries[len(entries)-1].Type
 
-		if len(*argLeaveTime) > 0 {
-			t, err := time.Parse("15:04", *argLeaveTime)
+		if len(cli.Show.LeaveTime) > 0 {
+			t, err := time.Parse("15:04", cli.Show.LeaveTime)
 			if err != nil {
 				return fmt.Errorf("failed to parse leave time: %s", err.Error())
 			}
@@ -169,8 +196,8 @@ func process() error {
 			return err
 		}
 
-		if len(*argBreakTime) > 0 {
-			t, err := time.Parse("15:04", *argBreakTime)
+		if len(cli.Show.BreakTime) > 0 {
+			t, err := time.Parse("15:04", cli.Show.BreakTime)
 			if err != nil {
 				return fmt.Errorf("failed to parse break time: %s", err.Error())
 			}
@@ -232,16 +259,19 @@ func process() error {
 		stdio.Println("-----------------------------------------------------")
 		stdio.Println("go home (%s) at %s%s%s %s(%s break)%s", formatDurationMinutes(targetTime), colors.LeaveTime, t2.Format("15:04"), colorEnd, colors.BreakInfo, formatDurationMinutes(breakTime2), colorEnd)
 
-		if *argReminder {
+		if cli.Show.SetReminder {
 			if err := goat.ClearQueue("g"); err != nil {
 				return fmt.Errorf("clear job queue: %s", err.Error())
 			}
 			if _, err := goat.AddJob("notify-send -i error 'Go home!'", t2, "g"); err != nil {
 				return fmt.Errorf("add gohome job: %s", err.Error())
 			}
-			if _, err := goat.AddJob("notify-send -i error '10h-Limit in 15 min! GO HOME!'", t4.Add(-15*time.Minute), "g"); err != nil {
+			t5 := t4.Add(-15 * time.Minute)
+			if _, err := goat.AddJob("notify-send -i error '10h-Limit in 15 min! GO HOME!'", t5, "g"); err != nil {
 				return fmt.Errorf("add 10h warning job: %s", err.Error())
 			}
+			stdio.Println("-----------------------------------------------------")
+			stdio.Println("-> reminders have been set to %d:%d and %d:%d", t2.Hour(), t2.Minute(), t5.Hour(), t5.Minute())
 		}
 	}
 
