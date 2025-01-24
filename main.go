@@ -18,6 +18,7 @@ var (
 	argBreakTime        = appMain.Flag("break", "Ignore actual break time and take input like '00:45' instead").Short('b').String()
 	argReminder         = appMain.Flag("reminder", "Show desktop notification on target time").Short('r').Bool()
 	argVerbose          = appMain.Flag("verbose", "Print every single step").Short('v').Bool()
+	argDebug            = appMain.Flag("debug", "Maximum debug output").Bool()
 	argForceReload      = appMain.Flag("force-reload", "Do not use existing cache and force refresh of entries").Short('f').Bool()
 	argCacheTimeSeconds = appMain.Flag("cache-time", "Max cache age in seconds").Default("600").Int()
 	argDumpColors       = appMain.Flag("dump-colors", fmt.Sprintf("Populates %s/colors.json with the current colors", getConfigDir())).Bool()
@@ -28,6 +29,12 @@ var (
 func main() {
 	kingpin.MustParse(appMain.Parse(os.Args[1:]))
 
+	if *argDebug {
+		*argVerbose = true
+		matrixDebugPrint = true
+		matrixOutputFiles = true
+		matrixOutputFileDir = "."
+	}
 	stdio.Verbose = *argVerbose
 
 	initColors()

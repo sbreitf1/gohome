@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -22,13 +23,14 @@ const (
 	matrixRendermapTokenCookieName = "oam.Flash.RENDERMAP.TOKEN"
 	urlMatrixLogin                 = "/login.jspx"
 	urlMatrixMainMenu              = "/mainMenu.jsf"
-
-	matrixDebugPrint  = false
-	matrixOutputFiles = false
 )
 
 var (
 	matrixVersionURL = "/matrix"
+
+	matrixDebugPrint    = false
+	matrixOutputFiles   = false
+	matrixOutputFileDir = ""
 )
 
 // FetchMatrixEntries returns today's entries available in "Aktuelle Buchungen" in Matrix and the current flexitime balance.
@@ -163,7 +165,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 		return nil, err
 	}
 	if matrixOutputFiles {
-		if err := os.WriteFile("entries.html", []byte(body), os.ModePerm); err != nil {
+		if err := os.WriteFile(filepath.Join(matrixOutputFileDir, "entries.html"), []byte(body), os.ModePerm); err != nil {
 			return nil, fmt.Errorf("output entries file: %s", err.Error())
 		}
 	}
@@ -241,7 +243,7 @@ func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
 		return 0, err
 	}
 	if matrixOutputFiles {
-		if err := os.WriteFile("flexitime.html", []byte(body), os.ModePerm); err != nil {
+		if err := os.WriteFile(filepath.Join(matrixOutputFileDir, "flexitime.html"), []byte(body), os.ModePerm); err != nil {
 			return 0, fmt.Errorf("output flexitime file: %s", err.Error())
 		}
 	}

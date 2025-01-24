@@ -12,6 +12,7 @@ type UserConfig struct {
 
 func ReadUserConfig() (UserConfig, error) {
 	configDir := getConfigDir()
+	matrixOutputFileDir = configDir
 	userConfFile := filepath.Join(configDir, "userconfig.json")
 
 	data, err := os.ReadFile(userConfFile)
