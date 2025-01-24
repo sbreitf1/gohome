@@ -260,7 +260,11 @@ func (c *MatrixClient) parseFlexiTime(body string) (time.Duration, error) {
 
 	tableData := doc.FindElements("//*[@title='Balance previous day']")
 	if len(tableData) == 0 {
-		return 0, fmt.Errorf("unable to parse current flexi-time balance")
+		tableDataDE := doc.FindElements("//*[@title='Saldo Vortag']")
+		if len(tableDataDE) == 0 {
+			return 0, fmt.Errorf("unable to parse current flexi-time balance")
+		}
+		tableData = tableDataDE
 	}
 
 	lastElement := tableData[len(tableData)-1]
