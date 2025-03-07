@@ -2,9 +2,9 @@
 
 set -e
 
-VERSION=$(git describe --tags HEAD | sed 's/v//g')
+VERSION=$(git describe --exact-match --tags HEAD | sed 's/v//g')
 if [[ -z $VERSION ]]; then
-    echo "no version detected!"
+    echo "no version detected! git tag like 'v0.0.0' on current commit is required."
     exit 1
 fi
 echo "package version v${VERSION}"
