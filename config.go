@@ -149,6 +149,7 @@ func enterMatrixConfig() (MatrixConfig, error) {
 	if err != nil {
 		return MatrixConfig{}, err
 	}
+	host = strings.TrimSuffix(host, "\n")
 
 	// ensure protocol is appended
 	if !strings.HasPrefix(strings.ToLower(host), "http://") && !strings.HasPrefix(strings.ToLower(host), "https://") {
@@ -164,11 +165,13 @@ func enterMatrixConfig() (MatrixConfig, error) {
 	if err != nil {
 		return MatrixConfig{}, err
 	}
+	user = strings.TrimSuffix(user, "\n")
 
 	pass, err := stdio.ReadPasswordWithPrompt("Pass> ")
 	if err != nil {
 		return MatrixConfig{}, err
 	}
+	stdio.Println("")
 
 	return MatrixConfig{host, user, pass}, nil
 }
