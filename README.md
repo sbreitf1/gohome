@@ -32,6 +32,10 @@ You can edit your user settings in `~/.config/gohome/userconfig.json`. Following
 
 Use parameter `--save-config` to persist command line parameters in user config.
 
+## Extensions
+
+- Integrate with Gnome Desktop using the [Gnome Extension](https://gitlab.com/sebjung/gohome-gnome-extension) by [sebjung](https://gitlab.com/sebjung)
+
 ## Thanks
 
 - Thanks to [danielb42](https://github.com/danielb42) for the [initial idea and cool project name](https://github.com/danielb42/gohome)
