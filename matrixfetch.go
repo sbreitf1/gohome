@@ -204,7 +204,9 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 		typeStr := row.ChildElements()[1].ChildElements()[0].Text()
 		typeStr = strings.ToLower(typeStr)
 		var entryType EntryType
-		if strings.Contains(typeStr, "kommen") ||
+		if strings.Contains(typeStr, "sequence error") {
+			continue
+		} else if strings.Contains(typeStr, "kommen") ||
 			strings.Contains(typeStr, "arrive") ||
 			strings.Contains(typeStr, "business authorisation") {
 			entryType = EntryTypeCome
@@ -213,9 +215,6 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 			strings.Contains(typeStr, "hourly absence - end") ||
 			strings.Contains(typeStr, "hourly absence end") ||
 			strings.Contains(typeStr, "system - baend") {
-			if strings.Contains(typeStr, "sequence error") {
-				continue
-			}
 			entryType = EntryTypeLeave
 		} else if strings.Contains(typeStr, "???bookingtype.1034.name???") {
 			// "???BookingType.1034.name???" wird geschrieben, wenn man am Terminal den Kontostand abfragt
