@@ -41,3 +41,4 @@ Use parameter `--save-config` to persist command line parameters in user config.
 - Thanks to [danielb42](https://github.com/danielb42) for the [initial idea and cool project name](https://github.com/danielb42/gohome)
 - Thanks to [fleaz](https://github.com/fleaz) for suggesting XDG config
 - Thanks to [Nerzal](https://github.com/Nerzal) for Matrix v4.2.2 Support
+- Thanks to [Artx069](https://github.com/Artx069) for `doc.ReadSettings.Permissive = true` fix
