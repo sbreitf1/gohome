@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -21,16 +23,35 @@ import (
 const (
 	matrixSessionCookieName        = "JSESSIONID"
 	matrixRendermapTokenCookieName = "oam.Flash.RENDERMAP.TOKEN"
-	urlMatrixLogin                 = "/login.jspx"
+	urlMatrixLoginJSPX             = "/login.jspx"
+	urlMatrixLoginJSF              = "/login.jsf"
 	urlMatrixMainMenu              = "/mainMenu.jsf"
 )
 
 var (
+	urlMatrixLogin   = matrixLoginPath(runtime.GOOS)
 	matrixVersionURL = "/matrix"
 
 	matrixDebugPrint    = false
 	matrixOutputFiles   = false
 	matrixOutputFileDir = ""
+)
+
+// Matrix replaced the login page with login.jsf for Linux and macOS users only.
+func matrixLoginPath(goos string) string {
+	switch goos {
+	case "linux", "darwin":
+		return urlMatrixLoginJSF
+	default:
+		return urlMatrixLoginJSPX
+	}
+}
+
+var (
+	uniqueTokenPattern = regexp.MustCompile(`name="uniqueToken"\s+value="([^"]+)"`)
+	viewStatePattern   = regexp.MustCompile(`((?:javax|jakarta)\.faces\.ViewState):\d+" value="([^"]*)"`)
+	// The self-service menu ID changes per session in newer Matrix versions.
+	selfServiceMenuPattern = regexp.MustCompile(`'activateMenuItem':'mss_root',[^}]*'agmenuform:assemblyGroupMenu_menuid':'([^']+)'`)
 )
 
 // FetchMatrixEntries returns today's entries available in "Aktuelle Buchungen" in Matrix and the current flexitime balance.
@@ -74,12 +95,16 @@ type MatrixClient struct {
 	lastVisitedPage string
 	nextUniqueToken string
 	nextViewState   string
+	viewStateParam  string
+	selfServiceID   string
 }
 
 // NewDormaClient returns a logged in DormaClient.
 func NewMatrixClient(config MatrixConfig) (*MatrixClient, error) {
 	client := &MatrixClient{
-		config: config,
+		config:         config,
+		viewStateParam: "javax.faces.ViewState",
+		selfServiceID:  "_c3d3c76c-a976-4d74-a147-db02d56ddb08|4",
 		httpClient: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
@@ -119,10 +144,53 @@ func (c *MatrixClient) login() error {
 		return err
 	}
 
+	if urlMatrixLogin == urlMatrixLoginJSF {
+		uniqueToken, err := c.fetchLoginToken()
+		if err != nil {
+			return err
+		}
+		requestBody = url.Values{
+			"uniqueToken":             {uniqueToken},
+			"systemLevel":             {"false"},
+			"timezonename":            {timeZoneName},
+			"timezoneoffset":          {timeZoneOffset},
+			"timezonedst":             {"true"},
+			"fallback":                {"false"},
+			"loginform:userid":        {c.config.User},
+			"loginform:password":      {c.config.Pass},
+			"loginform:loginButton":   {""},
+			"loginform_SUBMIT":        {"1"},
+			"jakarta.faces.ViewState": {"stateless"},
+		}.Encode()
+	}
+
 	if _, err := c.postRedirect(matrixVersionURL+urlMatrixLogin, requestBody); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (c *MatrixClient) fetchLoginToken() (string, error) {
+	resp, err := c.httpClient.Get(c.absoluteURL(matrixVersionURL + urlMatrixLogin))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	c.evalCookies(resp)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return parseUniqueToken(string(body))
+}
+
+func parseUniqueToken(body string) (string, error) {
+	m := uniqueTokenPattern.FindStringSubmatch(body)
+	if m == nil {
+		return "", fmt.Errorf("unable to parse unique token")
+	}
+	return m[1], nil
 }
 
 func (c *MatrixClient) detectRedirectURI() error {
@@ -144,7 +212,7 @@ func (c *MatrixClient) detectRedirectURI() error {
 }
 
 func (c *MatrixClient) visitSelfService() error {
-	requestBody := "uniqueToken=" + c.nextUniqueToken + "&autoScroll=&agmenuform_SUBMIT=1&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=mss_root&menuIndex=4&agmenuform%3AassemblyGroupMenu=agmenuform%3AassemblyGroupMenu&data-matrix-treepath=mss_root&agmenuform%3AassemblyGroupMenu_menuid=_c3d3c76c-a976-4d74-a147-db02d56ddb08|4"
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&autoScroll=&agmenuform_SUBMIT=1&" + c.viewStateParam + "=" + c.nextViewState + "&activateMenuItem=mss_root&menuIndex=4&agmenuform%3AassemblyGroupMenu=agmenuform%3AassemblyGroupMenu&data-matrix-treepath=mss_root&agmenuform%3AassemblyGroupMenu_menuid=" + c.selfServiceID
 
 	if _, err := c.postRedirect(matrixVersionURL+urlMatrixMainMenu, requestBody); err != nil {
 		return nil
@@ -158,7 +226,7 @@ func (c *MatrixClient) logout() error {
 
 // GetEntries returns all entries for the current day.
 func (c *MatrixClient) GetEntries() ([]Entry, error) {
-	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_searchWebBookingMss&menuform%3AmainMenu_mss_root_menuid=" + c.bookingID + "&data-matrix-treepath=mss_root.tim_searchWebBookingMss&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&" + c.viewStateParam + "=" + c.nextViewState + "&activateMenuItem=tim_searchWebBookingMss&menuform%3AmainMenu_mss_root_menuid=" + c.bookingID + "&data-matrix-treepath=mss_root.tim_searchWebBookingMss&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
 
 	body, err := c.postRedirect(c.lastVisitedPage, requestBody)
 	if err != nil {
@@ -171,6 +239,8 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 	}
 
 	doc := etree.NewDocument()
+	// Matrix emits inline JavaScript with raw '&&', which is not valid XML.
+	doc.ReadSettings.Permissive = true
 	if err := doc.ReadFromString(body); err != nil {
 		return nil, fmt.Errorf("read xml string element: %s", err.Error())
 	}
@@ -235,7 +305,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 
 // GetFlexiTime returns the current flexi time balance.
 func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
-	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root_menuid=" + c.monthDataID + "&data-matrix-treepath=mss_root.tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&" + c.viewStateParam + "=" + c.nextViewState + "&activateMenuItem=tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root_menuid=" + c.monthDataID + "&data-matrix-treepath=mss_root.tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
 
 	body, err := c.postRedirect(c.lastVisitedPage, requestBody)
 	if err != nil {
@@ -252,6 +322,7 @@ func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
 
 func (c *MatrixClient) parseFlexiTime(body string) (time.Duration, error) {
 	doc := etree.NewDocument()
+	doc.ReadSettings.Permissive = true
 	err := doc.ReadFromString(body)
 	if err != nil {
 		return 0, fmt.Errorf("unable to flexi-time balance html")
@@ -322,11 +393,11 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 		return "", fmt.Errorf("missing Cookie " + matrixSessionCookieName)
 	}
 
-	if response.Header.Get("Location") == "favoritePage.jsf" {
+	if path.Base(response.Header.Get("Location")) == "favoritePage.jsf" {
 		// this happens when a custom start page is selected. force redirect to main menu instead
 		response.Header.Set("Location", matrixVersionURL+urlMatrixMainMenu)
 	}
-	if response.Header.Get("Location") == "afterLogin.jsf" {
+	if path.Base(response.Header.Get("Location")) == "afterLogin.jsf" {
 		// changed redirect in v4.4.2
 		response.Header.Set("Location", matrixVersionURL+urlMatrixMainMenu)
 	}
@@ -358,27 +429,29 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 
 	c.evalCookies(response)
 
-	pattern := regexp.MustCompile(`<input type="hidden" name="uniqueToken" value="([^"]*)" />`)
-	m := pattern.FindStringSubmatch(body)
-	if len(m) != 2 {
-		return "", fmt.Errorf("unable to parse unique token")
+	c.nextUniqueToken, err = parseUniqueToken(body)
+	if err != nil {
+		return "", err
 	}
-	c.nextUniqueToken = m[1]
 	if matrixDebugPrint {
 		fmt.Println("UniqueToken:", c.nextUniqueToken)
 	}
 
-	pattern = regexp.MustCompile(`javax.faces.ViewState:\d+" value="([^"]*)"`)
-	m = pattern.FindStringSubmatch(body)
-	if len(m) != 2 {
+	m := viewStatePattern.FindStringSubmatch(body)
+	if m == nil {
 		return "", fmt.Errorf("unable to parse view state")
 	}
-	c.nextViewState = m[1]
+	c.viewStateParam, c.nextViewState = m[1], m[2]
 	if matrixDebugPrint {
 		fmt.Println("ViewState:", c.nextViewState)
 	}
 
-	pattern = regexp.MustCompile(`'tim_searchWebBookingMss','menuform:mainMenu_mss_root_menuid':'(\d+)'`)
+	if m := selfServiceMenuPattern.FindStringSubmatch(body); m != nil {
+		// PrimeFaces escapes '-' in JS string literals as '\-'.
+		c.selfServiceID = strings.ReplaceAll(m[1], `\`, "")
+	}
+
+	pattern := regexp.MustCompile(`'tim_searchWebBookingMss','menuform:mainMenu_mss_root_menuid':'(\d+)'`)
 	m = pattern.FindStringSubmatch(body)
 	if len(m) == 2 {
 		c.bookingID = m[1]
