@@ -171,16 +171,27 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 		}
 	}
 
-	pattern := regexp.MustCompile(`"dateTimeMinuteValue">(\d{1,2}:\d{1,2})</span></td><td role="gridcell"><span id="[^"]*">([^<]*)</span></td>`)
-	matches := pattern.FindAllStringSubmatch(body, -1)
+	doc := etree.NewDocument()
+	doc.ReadSettings.Permissive = true
+	if err := doc.ReadFromString(body); err != nil {
+		return nil, fmt.Errorf("read xml string element: %s", err.Error())
+	}
+
+	tableData := doc.FindElement("//*[@id='mainbody:editWebBooking:logTable_data']")
+	tableRows := tableData.FindElements("//tr[@data-ri]")
 
 	today := time.Now()
 
 	timeStampRegex := regexp.MustCompile(`\s*(\d+):(\d+)\s*`)
 
 	entries := make([]Entry, 0)
-	for _, entryMatch := range matches {
-		timeStamp := entryMatch[1]
+	for _, row := range tableRows {
+		timeSpan := row.ChildElements()[0].ChildElements()[0]
+		if timeSpan == nil {
+			return nil, fmt.Errorf("could not find time span")
+		}
+
+		timeStamp := timeSpan.Text()
 		m := timeStampRegex.FindStringSubmatch(timeStamp)
 
 		hour, _ := strconv.Atoi(m[1])
@@ -192,7 +203,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 			continue
 		}
 
-		typeStr := entryMatch[2]
+		typeStr := row.ChildElements()[1].ChildElements()[0].Text()
 		typeStr = strings.ToLower(typeStr)
 		var entryType EntryType
 		if strings.Contains(typeStr, "sequence error") {
@@ -226,7 +237,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 
 // GetFlexiTime returns the current flexi time balance.
 func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
-	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root_menuid=" + c.monthDataID + "&data-matrix-treepath=mss_root.tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&agmenuform_SUBMIT=1&jakarta.faces.ViewState=" + c.nextViewState + "&activateMenuItem=mss_root&menuIndex=" + c.monthDataID + "&agmenuform:assemblyGroupMenu=agmenuform:assemblyGroupMenu&data-matrix-treepath=mss_root&agmenuform:assemblyGroupMenu_menuid:_c453e1a6-56b6-4865-bdb5-76adfc739180|4"
 
 	body, err := c.postRedirect(c.lastVisitedPage, requestBody)
 	if err != nil {
@@ -243,6 +254,7 @@ func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
 
 func (c *MatrixClient) parseFlexiTime(body string) (time.Duration, error) {
 	doc := etree.NewDocument()
+	doc.ReadSettings.Permissive = true
 	os.WriteFile("data.xml", []byte(body), os.ModePerm)
 	err := doc.ReadFromString(body)
 	if err != nil {
@@ -302,7 +314,7 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 		c.setCookies(request)
 		request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-		fmt.Println("<--", currentURL)
+		fmt.Println("<--", currentMethod, currentURL)
 		response, err := c.httpClient.Do(request)
 		if err != nil {
 			return "", err
@@ -310,9 +322,11 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 		fmt.Println("-->", response.StatusCode)
 
 		c.evalCookies(response)
-		c.lastVisitedPage = response.Header.Get("Location")
-		if matrixDebugPrint {
-			fmt.Println("lastVisitedPage:", c.lastVisitedPage)
+		if len(response.Header.Get("Location")) > 0 {
+			c.lastVisitedPage = response.Header.Get("Location")
+			if matrixDebugPrint {
+				fmt.Println("lastVisitedPage:", c.lastVisitedPage)
+			}
 		}
 
 		if response.StatusCode == 200 {
