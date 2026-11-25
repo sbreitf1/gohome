@@ -21,7 +21,7 @@ import (
 const (
 	matrixSessionCookieName        = "JSESSIONID"
 	matrixRendermapTokenCookieName = "oam.Flash.RENDERMAP.TOKEN"
-	urlMatrixLogin                 = "/login.jspx"
+	urlMatrixLogin                 = "/login.jsf"
 	urlMatrixMainMenu              = "/mainMenu.jsf"
 )
 
@@ -113,7 +113,7 @@ func (c *MatrixClient) login() error {
 	timeZoneOffset := "+01:00"      //TODO dynamic
 	encodedTimeZoneName := url.QueryEscape(timeZoneName)
 	encodedTimeZoneOffset := url.QueryEscape(timeZoneOffset)
-	requestBody := fmt.Sprintf("userid=%s&password=%s&systemLevel=false&timezonename=%s&timezoneoffset=%s&timezonedst=true&loginButton=Anmeldung", encodedUser, encodedPass, encodedTimeZoneName, encodedTimeZoneOffset)
+	requestBody := fmt.Sprintf("uniqueToken=%s&loginform:userid=%s&loginform:password=%s&systemLevel=false&timezonename=%s&timezoneoffset=%s&timezonedst=true&loginform:loginButton=&loginform_SUBMIT=1&jakarta.faces.ViewState=stateless", c.nextUniqueToken, encodedUser, encodedPass, encodedTimeZoneName, encodedTimeZoneOffset)
 
 	if err := c.detectRedirectURI(); err != nil {
 		return err
@@ -144,7 +144,7 @@ func (c *MatrixClient) detectRedirectURI() error {
 }
 
 func (c *MatrixClient) visitSelfService() error {
-	requestBody := "uniqueToken=" + c.nextUniqueToken + "&autoScroll=&agmenuform_SUBMIT=1&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=mss_root&menuIndex=4&agmenuform%3AassemblyGroupMenu=agmenuform%3AassemblyGroupMenu&data-matrix-treepath=mss_root&agmenuform%3AassemblyGroupMenu_menuid=_c3d3c76c-a976-4d74-a147-db02d56ddb08|4"
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&autoScroll=&agmenuform_SUBMIT=1&jakarta.faces.ViewState=" + c.nextViewState + "&activateMenuItem=mss_root&menuIndex=4&agmenuform%3AassemblyGroupMenu=agmenuform%3AassemblyGroupMenu&data-matrix-treepath=mss_root&agmenuform%3AassemblyGroupMenu_menuid=3e1a6-56b6-4865-bdb5-76adfc739180|4"
 
 	if _, err := c.postRedirect(matrixVersionURL+urlMatrixMainMenu, requestBody); err != nil {
 		return nil
@@ -158,7 +158,7 @@ func (c *MatrixClient) logout() error {
 
 // GetEntries returns all entries for the current day.
 func (c *MatrixClient) GetEntries() ([]Entry, error) {
-	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_searchWebBookingMss&menuform%3AmainMenu_mss_root_menuid=" + c.bookingID + "&data-matrix-treepath=mss_root.tim_searchWebBookingMss&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&jakarta.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_searchWebBookingMss&menuform%3AmainMenu_mss_root_menuid=" + c.bookingID + "&data-matrix-treepath=mss_root.tim_searchWebBookingMss&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
 
 	body, err := c.postRedirect(c.lastVisitedPage, requestBody)
 	if err != nil {
@@ -171,6 +171,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 	}
 
 	doc := etree.NewDocument()
+	doc.ReadSettings.Permissive = true
 	if err := doc.ReadFromString(body); err != nil {
 		return nil, fmt.Errorf("read xml string element: %s", err.Error())
 	}
@@ -235,7 +236,7 @@ func (c *MatrixClient) GetEntries() ([]Entry, error) {
 
 // GetFlexiTime returns the current flexi time balance.
 func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
-	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&javax.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root_menuid=" + c.monthDataID + "&data-matrix-treepath=mss_root.tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
+	requestBody := "uniqueToken=" + c.nextUniqueToken + "&menuform_SUBMIT=1&autoScroll=&jakarta.faces.ViewState=" + c.nextViewState + "&activateMenuItem=tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root_menuid=" + c.monthDataID + "&data-matrix-treepath=mss_root.tim_persMonthlyReconciliation&menuform%3AmainMenu_mss_root=menuform%3AmainMenu_mss_root"
 
 	body, err := c.postRedirect(c.lastVisitedPage, requestBody)
 	if err != nil {
@@ -252,6 +253,7 @@ func (c *MatrixClient) GetFlexiTime() (time.Duration, error) {
 
 func (c *MatrixClient) parseFlexiTime(body string) (time.Duration, error) {
 	doc := etree.NewDocument()
+	doc.ReadSettings.Permissive = true
 	err := doc.ReadFromString(body)
 	if err != nil {
 		return 0, fmt.Errorf("unable to flexi-time balance html")
@@ -308,9 +310,15 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 	c.setCookies(request)
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
+	if matrixDebugPrint {
+		fmt.Println("<--", request.Method, request.URL)
+	}
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		return "", err
+	}
+	if matrixDebugPrint {
+		fmt.Println("-->", response.StatusCode)
 	}
 	if (response.StatusCode < 300) || (399 < response.StatusCode) {
 		return "", fmt.Errorf("server returned code %d when 3xx was expected", response.StatusCode)
@@ -322,11 +330,11 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 		return "", fmt.Errorf("missing Cookie " + matrixSessionCookieName)
 	}
 
-	if response.Header.Get("Location") == "favoritePage.jsf" {
+	if strings.HasSuffix(response.Header.Get("Location"), "favoritePage.jsf") {
 		// this happens when a custom start page is selected. force redirect to main menu instead
 		response.Header.Set("Location", matrixVersionURL+urlMatrixMainMenu)
 	}
-	if response.Header.Get("Location") == "afterLogin.jsf" {
+	if strings.HasSuffix(response.Header.Get("Location"), "afterLogin.jsf") {
 		// changed redirect in v4.4.2
 		response.Header.Set("Location", matrixVersionURL+urlMatrixMainMenu)
 	}
@@ -342,9 +350,15 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 		fmt.Println("lastVisitedPage:", c.lastVisitedPage)
 	}
 
+	if matrixDebugPrint {
+		fmt.Println("<--", request.Method, request.URL)
+	}
 	response, err = c.httpClient.Do(request)
 	if err != nil {
 		return "", err
+	}
+	if matrixDebugPrint {
+		fmt.Println("-->", response.StatusCode)
 	}
 	if response.StatusCode != 200 {
 		return "", fmt.Errorf("server returned code %d when 200 was expected", response.StatusCode)
@@ -368,7 +382,7 @@ func (c *MatrixClient) postRedirect(url, body string) (string, error) {
 		fmt.Println("UniqueToken:", c.nextUniqueToken)
 	}
 
-	pattern = regexp.MustCompile(`javax.faces.ViewState:\d+" value="([^"]*)"`)
+	pattern = regexp.MustCompile(`jakarta.faces.ViewState:\d+" value="([^"]*)"`)
 	m = pattern.FindStringSubmatch(body)
 	if len(m) != 2 {
 		return "", fmt.Errorf("unable to parse view state")
